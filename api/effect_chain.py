@@ -345,6 +345,18 @@ class EffectFactory:
             "custom": list(cls._global_custom_effects.keys()),
         }
 
+    @property
+    def pipeline(self):
+        """新しいパイプラインビルダーを作成"""
+        from .effect_pipeline import PipelineBuilder
+        return PipelineBuilder()
+    
+    @classmethod
+    def create_pipeline(cls):
+        """パイプラインビルダーの明示的な作成"""
+        from .effect_pipeline import PipelineBuilder
+        return PipelineBuilder()
+
     @classmethod
     def clear_cache(cls):
         """エフェクトキャッシュをクリア。"""

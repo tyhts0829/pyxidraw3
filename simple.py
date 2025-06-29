@@ -7,13 +7,16 @@ from util.constants import CANVAS_SIZES
 
 def draw(t, cc):
     """PyxiDraw次期API仕様の全機能デモ"""
-    sphere = G.sphere(subdivisions=cc[1], sphere_type=cc[2]).size(80, 80, 80).at(50, 50, 0).rotate(cc[3], cc[3], cc[3])
-    sphere = (
-        E.add(sphere).subdivision(n_divisions=cc[4]).noise(intensity=cc[5] * 0.5).filling(density=cc[6] * 0.8).result()
+    pl = (
+        E.pipeline.subdivision(n_divisions=cc[1])
+        .noise(intensity=cc[2])
+        .rotation(center=(100, 100, 0), rotate=(cc[3], cc[3], cc[3]))
     )
+    sphere = G.sphere(subdivisions=cc[6], sphere_type=cc[2]).size(80, 80, 80).at(50, 50, 0)
+    sphere = pl(sphere)
 
     poly = G.polyhedron().size(80, 80, 80).at(150, 50, 0).rotate(0, 0, 0, center=(150, 50, 0))
-    poly = E.add(poly).buffer(distance=cc[7]).result()
+    poly = pl(poly)
     return poly + sphere
 
 
