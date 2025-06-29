@@ -9,7 +9,9 @@ from util.constants import CANVAS_SIZES
 def draw(t, cc):
     """PyxiDraw次期API仕様の全機能デモ"""
     sphere = G.sphere(subdivisions=cc[1], sphere_type=cc[2]).size(80, 80, 80).at(50, 50, 0).rotate(cc[3], cc[3], cc[3])
-    sphere = E.add(sphere).subdivision().noise(intensity=cc[5] * 0.5).filling(density=cc[6] * 0.8).result()
+    sphere = (
+        E.add(sphere).subdivision(n_divisions=cc[4]).noise(intensity=cc[5] * 0.5).filling(density=cc[6] * 0.8).result()
+    )
     return sphere
 
 
