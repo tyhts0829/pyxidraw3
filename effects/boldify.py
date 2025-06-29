@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Any, List
+from typing import Any
 
 import numpy as np
 from numba import njit
@@ -33,45 +33,66 @@ def _calculate_line_normals_3d(vertices: np.ndarray) -> np.ndarray:
 
 
 @njit(fastmath=True, cache=True)
-def _boldify_normal_based(
-    vertices_list: List[np.ndarray],
+def _boldify_coords_with_offsets(
+    coords: np.ndarray,
+    offsets: np.ndarray,
     boldness: float = 0.01,
-) -> List[np.ndarray]:
+) -> tuple[np.ndarray, np.ndarray]:
     """法線ベースの効率的な太線実装。
     
     各線分の法線ベクトルを計算し、元の線の両側に平行線を生成して太線効果を実現。
     
     処理の流れ:
-    1. 各線分の方向ベクトルから法線ベクトル(垂直方向)を計算
-    2. 隣接する線分の法線を平均化して頂点での法線を算出
+    1. offsetsを使って各ポリラインを識別
+    2. 各ポリラインについて法線ベクトル(垂直方向)を計算
     3. 各頂点で法線方向に太さの半分だけオフセットした左右の平行線を生成
     4. 元の線と左右の平行線を結果として返す
     
     Args:
-        vertices_list: 3D頂点配列のリスト
+        coords: 3D座標配列 (N, 3)
+        offsets: オフセット配列 (M,)
         boldness: 太さ（単位：ミリメートル相当）
     
     Returns:
-        元の線 + 左の平行線 + 右の平行線を含む頂点配列リスト
+        (new_coords, new_offsets): 元の線 + 左の平行線 + 右の平行線を含む座標とオフセット
     """
     if boldness <= 0:
-        return vertices_list
+        return coords.copy(), offsets.copy()
 
-    new_vertices_list = []
+    if len(coords) == 0:
+        return coords.copy(), offsets.copy()
+
     half_boldness = boldness / 2
-
-    for vertices in vertices_list:
+    
+    # 結果を格納するリスト
+    all_coords = []
+    all_offsets = []
+    
+    # offsetsからポリラインを抽出
+    start_idx = 0
+    for end_idx in offsets:
+        if start_idx >= end_idx:
+            start_idx = end_idx
+            continue
+            
+        vertices = coords[start_idx:end_idx]
+        
         if vertices.shape[0] < 2:
-            new_vertices_list.append(vertices)
+            # 元のラインを追加
+            all_coords.append(vertices)
+            all_offsets.append(np.array([end_idx - start_idx], dtype=offsets.dtype))
+            start_idx = end_idx
             continue
 
-        # Add original line
-        new_vertices_list.append(vertices)
+        # 元のラインを追加
+        all_coords.append(vertices)
+        all_offsets.append(np.array([vertices.shape[0]], dtype=offsets.dtype))
 
         # Calculate normals for 3D vertices
         normals = _calculate_line_normals_3d(vertices)
 
         if normals.shape[0] == 0:
+            start_idx = end_idx
             continue
 
         # Calculate per-vertex normals
@@ -95,12 +116,21 @@ def _boldify_normal_based(
         left_line = vertices + vertex_normals * half_boldness
         right_line = vertices - vertex_normals * half_boldness
 
-        new_vertices_list.append(left_line.astype(vertices.dtype))
-        new_vertices_list.append(right_line.astype(vertices.dtype))
+        all_coords.append(left_line.astype(vertices.dtype))
+        all_coords.append(right_line.astype(vertices.dtype))
+        all_offsets.append(np.array([left_line.shape[0]], dtype=offsets.dtype))
+        all_offsets.append(np.array([right_line.shape[0]], dtype=offsets.dtype))
+        
+        start_idx = end_idx
 
-    return new_vertices_list
+    # すべての座標とオフセットを結合
+    if len(all_coords) == 0:
+        return coords.copy(), offsets.copy()
+        
+    combined_coords = np.vstack(all_coords)
+    combined_offsets = np.cumsum(np.concatenate(all_offsets))
 
-
+    return combined_coords, combined_offsets
 
 
 class Boldify(BaseEffect):
@@ -117,24 +147,27 @@ class Boldify(BaseEffect):
 
     def apply(
         self,
-        vertices_list: list[np.ndarray],
+        coords: np.ndarray,
+        offsets: np.ndarray,
         boldness: float = 0.5,
         **_: Any,
-    ) -> list[np.ndarray]:
+    ) -> tuple[np.ndarray, np.ndarray]:
         """太線化エフェクトを適用。
 
         線分の両側に平行線を追加することで太線効果を実現。
         固定太さの平行線を両側に1本ずつ追加し、計3本の線で太線効果を実現。
 
         Args:
-            vertices_list: 3D頂点配列のリスト（各配列は(N, 3)の形状）
+            coords: 3D座標配列 (N, 3)
+            offsets: オフセット配列 (M,)
             boldness: 太さ係数（0.0-1.0）。BOLDNESS_COEFで内部的にスケーリング
 
         Returns:
-            太線化された頂点配列のリスト。元の線 + 平行線が含まれる
+            (boldified_coords, boldified_offsets): 太線化された座標とオフセット。
+            元の線 + 平行線が含まれる
         """
         if boldness <= 0:
-            return vertices_list
+            return coords.copy(), offsets.copy()
 
         boldness = boldness * self.BOLDNESS_COEF
-        return _boldify_normal_based(vertices_list, boldness)
+        return _boldify_coords_with_offsets(coords, offsets, boldness)
