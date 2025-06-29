@@ -12,13 +12,14 @@ def draw(t, cc):
     noise_intensity = cc.get(2, 0.3)
     rotation_val = cc.get(3, 0.1)
     sphere_subdivisions = cc.get(6, 0.5)
-    
+
     pl = (
         E.pipeline.subdivision(n_divisions=subdivision_val)
         .noise(intensity=noise_intensity)
         .rotation(center=(100, 100, 0), rotate=(rotation_val, rotation_val, rotation_val))
     )
-    sphere = G.sphere(subdivisions=sphere_subdivisions, sphere_type=noise_intensity).size(80, 80, 80).at(50, 50, 0)
+    sphere = G.sphere(subdivisions=sphere_subdivisions, sphere_type=noise_intensity).size(80, 80, 80)
+    sphere = sphere.at(50, 50, 0)
     sphere = pl(sphere)
 
     poly = G.polyhedron().size(80, 80, 80).at(150, 50, 0).rotate(0, 0, 0, center=(150, 50, 0))
