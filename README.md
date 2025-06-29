@@ -84,35 +84,38 @@ message = G.text(text_content="HELLO").size(30).at(100, 100)
 
 ### 基本変換
 ```python
-from api.effects import rotation, scaling, translation, transform
+from api import E
 
-# 個別変換
-rotated = rotation(geometry, center=(0,0,0), rotate=(0,0,0.5))
-scaled = scaling(geometry, center=(0,0,0), scale=(2,2,2))
-moved = translation(geometry, offset_x=10, offset_y=20)
+# メソッドチェーンによる統一されたエフェクト処理
+result = (E.add(geometry)
+          .rotation(center=(0,0,0), rotate=(0,0,0.5))
+          .scaling(center=(0,0,0), scale=(2,2,2))
+          .translation(offset_x=10, offset_y=20)
+          .result())
 
-# 複合変換（推奨）
-transformed = transform(geometry, 
-                       center=(100, 100, 0), 
-                       scale=(2, 2, 2), 
-                       rotate=(0.5, 0.3, 0))
+# 複合変換
+transformed = (E.add(geometry)
+               .transform(center=(100, 100, 0), 
+                         scale=(2, 2, 2), 
+                         rotate=(0.5, 0.3, 0))
+               .result())
 ```
 
 ### 形状操作エフェクト
 ```python
-from api.effects import subdivision, filling, noise, buffer
+from api import E
 
-# 線の細分化（より滑らかな曲線）
-smooth = subdivision(geometry, n_divisions=0.8)
+# 高性能なメソッドチェーンエフェクト
+result = (E.add(geometry)
+          .subdivision(n_divisions=0.8)    # 線の細分化
+          .filling(pattern="lines", density=0.6)  # ハッチング塗りつぶし
+          .noise(intensity=0.3, time=t)    # Perlinノイズ
+          .buffer(distance=0.08)           # バッファ（太線効果）
+          .result())
 
-# ハッチング塗りつぶし
-filled = filling(geometry, pattern="lines", density=0.6)
-
-# Perlinノイズによる有機的な歪み
-organic = noise(geometry, intensity=0.3, time=t)
-
-# パス周りのバッファ（太線効果）
-thick = buffer(geometry, distance=2.0, join_style="round")
+# 個別エフェクトも可能
+smooth = E.add(geometry).subdivision(n_divisions=0.8).result()
+filled = E.add(geometry).filling(pattern="lines", density=0.6).result()
 ```
 
 ## 🎹 MIDI制御システム
@@ -128,8 +131,12 @@ def draw(t, cc):
     noise_level = cc.get(3, 0.2)      # CC#3でノイズ強度制御
     
     base = G.polygon(n_sides=6).size(size).at(100, 100)
-    rotating = base.rotate_z(t * rotation_speed)
-    final = noise(rotating, intensity=noise_level, time=t)
+    
+    # エフェクトチェーンで統一されたAPI
+    final = (E.add(base)
+             .rotation(rotate=(0, 0, t * rotation_speed))
+             .noise(intensity=noise_level, time=t)
+             .result())
     
     return final
 ```
@@ -144,13 +151,13 @@ def advanced_midi_control(t, cc):
     base = G.polygon(n_sides=n_sides)
     
     # エフェクトチェーン（MIDIで各段階を制御）
-    transformed = transform(base,
-                           center=(100, 100, 0),
-                           scale=(cc.get(2, 0.5) * 100, cc.get(2, 0.5) * 100, 50),
-                           rotate=(cc.get(3, 0) * 6.28, cc.get(4, 0) * 6.28, t * 0.1))
-    
-    subdivided = subdivision(transformed, n_divisions=cc.get(5, 0.5))
-    final = noise(subdivided, intensity=cc.get(6, 0.2), time=t)
+    final = (E.add(base)
+             .transform(center=(100, 100, 0),
+                       scale=(cc.get(2, 0.5) * 100, cc.get(2, 0.5) * 100, 50),
+                       rotate=(cc.get(3, 0) * 6.28, cc.get(4, 0) * 6.28, t * 0.1))
+             .subdivision(n_divisions=cc.get(5, 0.5))
+             .noise(intensity=cc.get(6, 0.2), time=t)
+             .result())
     
     return final
 ```

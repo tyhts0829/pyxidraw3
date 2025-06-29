@@ -17,12 +17,12 @@ def _get_cached_module(module_name: str, function_name: Optional[str] = None):
     cache_key = f"{module_name}.{function_name}" if function_name else module_name
     
     if cache_key not in _cached_modules:
-        if module_name == "api.effects":
-            import api.effects
+        if module_name == "api.effect_chain":
+            from api.effect_chain import E
             if function_name:
-                _cached_modules[cache_key] = getattr(api.effects, function_name)
+                _cached_modules[cache_key] = getattr(E, function_name)
             else:
-                _cached_modules[cache_key] = api.effects
+                _cached_modules[cache_key] = E
         elif module_name == "api.shape_factory":
             from api.shape_factory import G
             if function_name:
@@ -39,14 +39,13 @@ def init_worker():
     """ProcessPoolExecutorのワーカー初期化時に呼ばれる関数"""
     # よく使われるモジュールを事前にインポート
     try:
-        import api.effects
+        from api.effect_chain import E
         from api.shape_factory import G
-        _cached_modules['api.effects'] = api.effects
+        _cached_modules['api.effect_chain'] = E
         _cached_modules['api.shape_factory'] = G
         
-        # 個別の関数もキャッシュ
-        for func_name in ['noise', 'subdivision', 'extrude', 'filling', 'buffer', 'array']:
-            _cached_modules[f'api.effects.{func_name}'] = getattr(api.effects, func_name)
+        # エフェクトメソッドもキャッシュ（Eはメソッドチェーン形式）
+        _cached_modules['api.effect_chain.E'] = E
         
         for func_name in ['polygon', 'grid', 'sphere', 'cylinder', 'cone', 'torus']:
             _cached_modules[f'api.shape_factory.{func_name}'] = getattr(G, func_name)
@@ -77,34 +76,34 @@ class SerializableEffectTarget:
             rotate = self.params.get("rotate", (0, 0, 0))
             return geom.rotate(rotate[0], rotate[1], rotate[2])
         elif self.effect_type == "noise":
-            noise = _get_cached_module("api.effects", "noise")
+            E = _get_cached_module("api.effect_chain")
             intensity = self.params.get("intensity", 0.5)
             frequency = self.params.get("frequency", 1.0)
-            return noise(geom, intensity=intensity, frequency=frequency)
+            return E.add(geom).noise(intensity=intensity, frequency=frequency).result()
         elif self.effect_type == "subdivision":
-            subdivision = _get_cached_module("api.effects", "subdivision")
+            E = _get_cached_module("api.effect_chain")
             level = self.params.get("level", 1)
-            return subdivision(geom, level=level)
+            return E.add(geom).subdivision(n_divisions=level).result()
         elif self.effect_type == "extrude":
-            extrude = _get_cached_module("api.effects", "extrude")
-            depth = self.params.get("depth", 10.0)
-            return extrude(geom, depth=depth)
+            E = _get_cached_module("api.effect_chain")
+            distance = self.params.get("depth", 10.0)
+            return E.add(geom).extrude(distance=distance).result()
         elif self.effect_type == "filling":
-            filling = _get_cached_module("api.effects", "filling")
-            spacing = self.params.get("spacing", 10.0)
+            E = _get_cached_module("api.effect_chain")
+            density = self.params.get("spacing", 10.0) / 20.0  # spacing to density conversion
             angle = self.params.get("angle", 0.0)
-            return filling(geom, spacing=spacing, angle=angle)
+            return E.add(geom).filling(density=density, angle=angle).result()
         elif self.effect_type == "buffer":
-            buffer = _get_cached_module("api.effects", "buffer")
-            distance = self.params.get("distance", 5.0)
-            return buffer(geom, distance=distance)
+            E = _get_cached_module("api.effect_chain")
+            distance = self.params.get("distance", 5.0) / 10.0  # normalize to 0.0-1.0
+            return E.add(geom).buffer(distance=distance).result()
         elif self.effect_type == "array":
-            array = _get_cached_module("api.effects", "array")
-            count_x = self.params.get("count_x", 2)
-            count_y = self.params.get("count_y", 2)
+            E = _get_cached_module("api.effect_chain")
+            count_total = self.params.get("count_x", 2) * self.params.get("count_y", 2)
+            n_duplicates = min(count_total / 10.0, 1.0)  # normalize to 0.0-1.0
             spacing_x = self.params.get("spacing_x", 10.0)
             spacing_y = self.params.get("spacing_y", 10.0)
-            return array(geom, count_x=count_x, count_y=count_y, spacing_x=spacing_x, spacing_y=spacing_y)
+            return E.add(geom).array(n_duplicates=n_duplicates, offset=(spacing_x, spacing_y, 0)).result()
         else:
             raise ValueError(f"Unknown effect type: {self.effect_type}")
 

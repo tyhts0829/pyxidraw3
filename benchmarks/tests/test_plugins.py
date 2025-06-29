@@ -26,8 +26,8 @@ class TestEffectBenchmarkPlugin(unittest.TestCase):
 
     def test_discover_targets(self):
         """ターゲット発見のテスト"""
-        # api.effectsのインポートをモック化してnumba/llvmliteのエラーを回避
-        with patch.dict('sys.modules', {'api.effects': unittest.mock.MagicMock()}):
+        # api.effect_chainのインポートをモック化してnumba/llvmliteのエラーを回避
+        with patch.dict('sys.modules', {'api.effect_chain': unittest.mock.MagicMock()}):
             targets = self.plugin.discover_targets()
             self.assertGreater(len(targets), 0)
             # noiseターゲットが存在することを確認
