@@ -3,7 +3,7 @@ from __future__ import annotations
 import threading
 from typing import Optional
 
-from engine.core.geometry import Geometry
+from api.geometry_api import GeometryAPI
 
 
 class SwapBuffer:
@@ -17,14 +17,14 @@ class SwapBuffer:
         _evt (Event): 新しいデータが準備できたかどうかを示すフラグ
         _lock (Lock): スレッド同士が同時に操作しないようにするためのロック
         """
-        self._front: Optional[Geometry] = None
-        self._back: Optional[Geometry] = None
+        self._front: Optional[GeometryAPI] = None
+        self._back: Optional[GeometryAPI] = None
         self._version: int = 0
         self._evt = threading.Event()
         self._lock = threading.Lock()
 
     # ---------- producer (BufferSubsystem) ----------
-    def push(self, data: Geometry) -> None:
+    def push(self, data: GeometryAPI) -> None:
         """BufferSubsystemが呼び出し、新しく生成したデータをセットする"""
         with self._lock:
             self._back = data
@@ -41,7 +41,7 @@ class SwapBuffer:
             self._evt.clear()  # データを交換したので、イベントをクリア
         return True
 
-    def get_front(self) -> Optional[Geometry]:
+    def get_front(self) -> Optional[GeometryAPI]:
         """現在の front データを取得する。"""
         return self._front
 

@@ -5,13 +5,15 @@ API層やエフェクト層への依存を一切持たない。
 
 from __future__ import annotations
 import numpy as np
+import uuid
+import hashlib
 from typing import Tuple
 
 
 class GeometryData:
     """頂点列とオフセット列だけを保持する純粋データコンテナ。"""
     
-    __slots__ = ("coords", "offsets")
+    __slots__ = ("coords", "offsets", "guid")
     
     def __init__(self, coords: np.ndarray, offsets: np.ndarray):
         """
@@ -21,10 +23,13 @@ class GeometryData:
         """
         self.coords = coords.astype(np.float32, copy=False)
         self.offsets = offsets.astype(np.int32, copy=False)
+        self.guid = uuid.uuid4()
     
     def copy(self) -> "GeometryData":
         """深いコピーを作成する。"""
-        return GeometryData(self.coords.copy(), self.offsets.copy())
+        new_geom = GeometryData(self.coords.copy(), self.offsets.copy())
+        new_geom.guid = self.guid  # 同じGUIDを保持
+        return new_geom
     
     def concat(self, other: "GeometryData") -> "GeometryData":
         """別のGeometryDataと連結した新インスタンスを返す。"""
@@ -97,3 +102,11 @@ class GeometryData:
     def is_empty(self) -> bool:
         """データが空かどうかを判定。"""
         return len(self.coords) == 0
+    
+    def get_hash(self) -> str:
+        """GUIDベースのハッシュ値を返す（キャッシュキー用）。"""
+        return hashlib.md5(str(self.guid).encode()).hexdigest()
+    
+    def __hash__(self) -> int:
+        """ハッシュ値を返す（set, dictキー用）。"""
+        return hash(self.guid)

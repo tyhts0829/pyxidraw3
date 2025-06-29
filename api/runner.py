@@ -8,7 +8,7 @@ import pyglet
 from pyglet.window import key
 
 from engine.core.frame_clock import FrameClock
-from engine.core.geometry import Geometry
+from api.geometry_api import GeometryAPI
 from engine.core.render_window import RenderWindow
 from engine.io.manager import connect_midi_controllers
 from engine.io.service import MidiService
@@ -22,7 +22,7 @@ from util.constants import CANVAS_SIZES
 
 
 def run_sketch(
-    user_draw: Callable[[float, Mapping[int, int]], Geometry],
+    user_draw: Callable[[float, Mapping[int, int]], GeometryAPI],
     *,
     canvas_size: str | tuple[int, int] = "A5",
     render_scale: int = 4,
@@ -32,7 +32,7 @@ def run_sketch(
 ) -> None:
     """
     user_draw :
-        ``t [sec], cc_dict → Geometry`` を返す関数。
+        ``t [sec], cc_dict → GeometryAPI`` を返す関数。
     canvas_size :
         既定キー("A4","A5"...）または ``(width, height)`` mm。
     render_scale :

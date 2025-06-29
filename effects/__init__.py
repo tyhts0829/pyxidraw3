@@ -1,3 +1,6 @@
+# @effectデコレータ（仕様書準拠）
+from .registry import effect, get_effect, list_effects
+
 from .base import BaseEffect
 from .pipeline import EffectPipeline
 from .boldify import Boldify
@@ -22,6 +25,11 @@ from .transform import Transform
 from .buffer import Buffer
 
 __all__ = [
+    # デコレータ
+    "effect",
+    "get_effect",
+    "list_effects",
+    # エフェクトクラス
     "BaseEffect",
     "EffectPipeline",
     "Boldify",
