@@ -96,31 +96,44 @@ class EffectChain:
         return (base_guid, steps_hash)
 
     def _apply_effects(self) -> GeometryAPI:
-        """全エフェクトを順次適用。"""
-        # Geometry（旧API）に変換
-        coords, offsets = self._base_geometry.data.as_arrays()
-        current_geom = Geometry(coords, offsets)
-
-        # 各エフェクトを順次適用
+        """全エフェクトを順次適用（統一API処理）。"""
+        current_api = self._base_geometry
+        
         for step in self._steps:
-            if step.effect_name in self._effect_registry:
-                # 標準エフェクト
-                effect_class = self._effect_registry[step.effect_name]
-                effect_instance = effect_class()
-                current_geom = effect_instance.apply(current_geom, **step.params)
-            elif step.effect_name in self._custom_effects:
-                # カスタムエフェクト
-                effect_func = self._custom_effects[step.effect_name]
-                # GeometryAPIに変換→カスタム関数適用→Geometryに戻す
-                temp_api = GeometryAPI(GeometryData(current_geom.coords, current_geom.offsets))
-                temp_api = effect_func(temp_api, **step.params)
-                current_geom = Geometry(temp_api.coords, temp_api.offsets)
-            else:
-                raise ValueError(f"Unknown effect: {step.effect_name}")
-
-        # GeometryAPIに変換して返す
-        result_data = GeometryData(current_geom.coords, current_geom.offsets)
-        return GeometryAPI(result_data)
+            current_api = self._apply_single_effect(current_api, step)
+        
+        return current_api
+    
+    def _apply_single_effect(self, geometry_api: GeometryAPI, step: EffectStep) -> GeometryAPI:
+        """単一エフェクトの適用。"""
+        if step.effect_name in self._effect_registry:
+            return self._wrap_legacy_effect(
+                self._effect_registry[step.effect_name], 
+                geometry_api, 
+                step.params
+            )
+        elif step.effect_name in self._custom_effects:
+            return self._custom_effects[step.effect_name](geometry_api, **step.params)
+        else:
+            raise ValueError(f"Unknown effect: {step.effect_name}")
+    
+    def _wrap_legacy_effect(self, effect_class, geometry_api: GeometryAPI, params: dict) -> GeometryAPI:
+        """旧エフェクトをGeometryAPI対応にラップ。"""
+        coords, offsets = geometry_api.data.as_arrays()
+        legacy_geom = Geometry(coords, offsets)
+        
+        # キャッシュ無効化されたエフェクトインスタンスを作成
+        effect_instance = self._create_effect_instance(effect_class)
+        result = effect_instance.apply(legacy_geom, **params)
+        
+        return GeometryAPI(GeometryData(result.coords, result.offsets))
+    
+    def _create_effect_instance(self, effect_class):
+        """キャッシュ無効化されたエフェクトインスタンスを作成。"""
+        instance = effect_class()
+        if hasattr(instance, 'disable_cache'):
+            instance.disable_cache()  # EffectChainレベルでキャッシュ管理
+        return instance
 
     def _get_result(self) -> GeometryAPI:
         """結果を取得（キャッシュ使用）。"""
@@ -134,8 +147,13 @@ class EffectChain:
         self._cache[cache_key] = result
         return result
 
-    def _add_step(self, effect_name: str, **params) -> "EffectChain":
+    def _add_step(self, effect_name: str, params: dict = None, **kwargs) -> "EffectChain":
         """新しいエフェクトステップを追加。"""
+        if params is None:
+            params = kwargs if kwargs else {}
+        else:
+            params = {**params, **kwargs}
+            
         new_chain = EffectChain(self._base_geometry)
         new_chain._steps = self._steps.copy()
         new_chain._steps.append(EffectStep(effect_name, params))
@@ -152,42 +170,42 @@ class EffectChain:
     ) -> "EffectChain":
         """ノイズエフェクトを追加。"""
         all_params = {"intensity": intensity, "frequency": frequency, "t": t, **params}
-        return self._add_step("noise", **all_params)
+        return self._add_step("noise", all_params)
 
     def filling(self, pattern: str = "lines", density: float = 0.5, angle: float = 0.0, **params) -> "EffectChain":
         """塗りつぶしエフェクトを追加。"""
         all_params = {"pattern": pattern, "density": density, "angle": angle, **params}
-        return self._add_step("filling", **all_params)
+        return self._add_step("filling", all_params)
 
     def rotation(
         self, center: tuple[float, float, float] = (0, 0, 0), rotate: tuple[float, float, float] = (0, 0, 0), **params
     ) -> "EffectChain":
         """回転エフェクトを追加。"""
         all_params = {"center": center, "rotate": rotate, **params}
-        return self._add_step("rotation", **all_params)
+        return self._add_step("rotation", all_params)
 
     def scaling(
         self, center: tuple[float, float, float] = (0, 0, 0), scale: tuple[float, float, float] = (1, 1, 1), **params
     ) -> "EffectChain":
         """拡大縮小エフェクトを追加。"""
         all_params = {"center": center, "scale": scale, **params}
-        return self._add_step("scaling", **all_params)
+        return self._add_step("scaling", all_params)
 
     def translation(
         self, offset_x: float = 0.0, offset_y: float = 0.0, offset_z: float = 0.0, **params
     ) -> "EffectChain":
         """平行移動エフェクトを追加。"""
         all_params = {"offset_x": offset_x, "offset_y": offset_y, "offset_z": offset_z, **params}
-        return self._add_step("translation", **all_params)
+        return self._add_step("translation", all_params)
 
     def transform(self, **params) -> "EffectChain":
         """複合変換エフェクトを追加。"""
-        return self._add_step("transform", **params)
+        return self._add_step("transform", params)
 
     def subdivision(self, n_divisions: float = 0.5, **params) -> "EffectChain":
         """細分化エフェクトを追加。"""
         all_params = {"n_divisions": n_divisions, **params}
-        return self._add_step("subdivision", **all_params)
+        return self._add_step("subdivision", all_params)
 
     def extrude(
         self,
@@ -205,14 +223,14 @@ class EffectChain:
             "subdivisions": subdivisions,
             **params,
         }
-        return self._add_step("extrude", **all_params)
+        return self._add_step("extrude", all_params)
 
     def buffer(
         self, distance: float = 0.5, join_style: float = 0.5, resolution: float = 0.5, **params
     ) -> "EffectChain":
         """バッファエフェクトを追加。"""
         all_params = {"distance": distance, "join_style": join_style, "resolution": resolution, **params}
-        return self._add_step("buffer", **all_params)
+        return self._add_step("buffer", all_params)
 
     def array(
         self,
@@ -232,7 +250,7 @@ class EffectChain:
             "center": center,
             **params,
         }
-        return self._add_step("array", **all_params)
+        return self._add_step("array", all_params)
 
     # === 拡張機能 ===
 
@@ -247,7 +265,7 @@ class EffectChain:
         """
         func_id = f"apply_{id(func)}"
         self._custom_effects[func_id] = func
-        return self._add_step(func_id)
+        return self._add_step(func_id, {})
 
     # === 動的メソッド生成 ===
 
@@ -256,7 +274,7 @@ class EffectChain:
         if name in self._custom_effects:
 
             def custom_effect(**params):
-                return self._add_step(name, **params)
+                return self._add_step(name, params)
 
             return custom_effect
         else:
