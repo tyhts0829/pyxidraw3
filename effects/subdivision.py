@@ -15,27 +15,27 @@ class Subdivision(BaseEffect):
 
     MAX_DIVISIONS = 10  # 最大分割回数
 
-    def apply(self, geometry: Geometry, n_divisions: float = 0.5, **_params: Any) -> Geometry:
+    def apply(self, coords: np.ndarray, offsets: np.ndarray, n_divisions: float = 0.5, **_params: Any) -> tuple[np.ndarray, np.ndarray]:
         """細分化エフェクトを適用します。
 
         Args:
-            geometry: 入力Geometryオブジェクト
+            coords: 入力座標配列
+            offsets: 入力オフセット配列
             n_divisions: 細分化レベル (0.0 = 変化なし, 1.0 = 最大分割) - デフォルト 0.5
             **_params: 追加パラメータ（無視される）
 
         Returns:
-            細分化されたGeometry
+            (new_coords, new_offsets): 細分化された座標配列とオフセット配列
         """
         if n_divisions <= 0.0:
-            return geometry
+            return coords.copy(), offsets.copy()
 
         # Convert 0.0-1.0 to 0-MAX_DIVISIONS
         divisions = int(n_divisions * self.MAX_DIVISIONS)
         if divisions <= 0:
-            return geometry
+            return coords.copy(), offsets.copy()
 
         # 既存の線を取得し、細分化を適用
-        coords, offsets = geometry.as_arrays()
         result = []
         
         for i in range(len(offsets) - 1):
@@ -43,7 +43,9 @@ class Subdivision(BaseEffect):
             subdivided = _subdivide_core(vertices, divisions)
             result.append(subdivided)
 
-        return Geometry.from_lines(result)
+        # 結果をGeometryに変換してから配列を取得
+        result_geometry = Geometry.from_lines(result)
+        return result_geometry.coords, result_geometry.offsets
 
 
 @njit(fastmath=True, cache=True)

@@ -11,7 +11,10 @@ def draw(t, cc):
     sphere = (
         E.add(sphere).subdivision(n_divisions=cc[4]).noise(intensity=cc[5] * 0.5).filling(density=cc[6] * 0.8).result()
     )
-    return sphere
+
+    poly = G.polyhedron().size(80, 80, 80).at(150, 50, 0).rotate(0, 0, 0, center=(150, 50, 0))
+    poly = E.add(poly).buffer(distance=cc[7]).result()
+    return poly + sphere
 
 
 if __name__ == "__main__":

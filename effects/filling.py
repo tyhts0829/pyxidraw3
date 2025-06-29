@@ -6,7 +6,6 @@ import numpy as np
 from numba import njit
 
 from util.geometry import transform_back, transform_to_xy_plane
-from engine.core.geometry import Geometry
 
 from .base import BaseEffect
 
@@ -19,32 +18,33 @@ class Filling(BaseEffect):
 
     def apply(
         self, 
-        geometry: Geometry, 
+        coords: np.ndarray, 
+        offsets: np.ndarray,
         pattern: str = "lines",
         density: float = 0.5,
         angle: float = 0.0,
         **params: Any
-    ) -> Geometry:
+    ) -> tuple[np.ndarray, np.ndarray]:
         """塗りつぶしエフェクトを適用します。
 
         Args:
-            geometry: 入力Geometryオブジェクト（閉じた形状を形成する必要がある）
+            coords: 入力座標配列
+            offsets: 入力オフセット配列（閉じた形状を形成する必要がある）
             pattern: 塗りつぶしパターン ("lines", "cross", "dots") - デフォルト "lines"
             density: 塗りつぶし密度 (0.0-1.0) - デフォルト 0.5
             angle: パターンの角度（ラジアン） - デフォルト 0.0
             **params: 追加パラメータ
 
         Returns:
-            元の形状と塗りつぶし線を含むGeometryオブジェクト
+            (new_coords, new_offsets): 元の形状と塗りつぶし線を含む座標配列とオフセット配列
         """
 
         if density <= 0:
-            return geometry
+            return coords.copy(), offsets.copy()
 
         filled_results = []
         
         # 既存の線を追加
-        coords, offsets = geometry.as_arrays()
         for i in range(len(offsets) - 1):
             vertices = coords[offsets[i]:offsets[i+1]]
             if len(vertices) < 3:
@@ -66,7 +66,21 @@ class Filling(BaseEffect):
 
             filled_results.extend(fill_lines)
 
-        return Geometry.from_lines(filled_results)
+        # 結果を純粋なnumpy配列として構築
+        if not filled_results:
+            return coords.copy(), offsets.copy()
+        
+        # 全線を連結
+        all_coords = np.vstack(filled_results)
+        
+        # 新しいオフセット配列を構築
+        new_offsets = [0]
+        current_offset = 0
+        for line in filled_results:
+            current_offset += len(line)
+            new_offsets.append(current_offset)
+        
+        return all_coords, np.array(new_offsets, dtype=np.int32)
 
     def _generate_line_fill(self, vertices: np.ndarray, density: float, angle: float = 0.0) -> list[np.ndarray]:
         """平行線塗りつぶしパターンを生成します。"""

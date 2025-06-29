@@ -6,8 +6,7 @@ import numpy as np
 from shapely.geometry import LineString, MultiLineString, MultiPolygon, Polygon
 from shapely.geometry.base import BaseGeometry
 
-from engine.core.geometry import Geometry
-from util.geometry import geometry_transform_back, geometry_transform_to_xy_plane
+from util.geometry import transform_back, transform_to_xy_plane
 
 from .base import BaseEffect
 
@@ -16,33 +15,35 @@ class Buffer(BaseEffect):
     """Shapelyを使用した高精度なバッファー/オフセット処理を行います。"""
 
     def apply(
-        self, 
-        geometry: Geometry, 
+        self,
+        coords: np.ndarray,
+        offsets: np.ndarray,
         distance: float = 0.5,
         join_style: float = 0.5,
         resolution: float = 0.5,
-        **params: Any
-    ) -> Geometry:
+        **params: Any,
+    ) -> tuple[np.ndarray, np.ndarray]:
         """バッファーエフェクトを適用します。
 
         Shapelyライブラリを使用して高精度なバッファー処理を実行します。
 
         Args:
-            geometry: 入力Geometryオブジェクト
+            coords: 入力座標配列
+            offsets: 入力オフセット配列
             distance: バッファー距離 - デフォルト 0.5 (0.0-1.0レンジで25倍される)
             join_style: 角の接合スタイル（0.0-1.0でround/mitre/bevelを選択） - デフォルト 0.5
             resolution: バッファーの解像度（0.0-1.0で1-10の整数値に変換） - デフォルト 0.5
             **params: 追加パラメータ
 
         Returns:
-            バッファー化されたGeometry
+            (buffered_coords, buffered_offsets): バッファー化された座標配列とオフセット配列
         """
 
         # 0.0-1.0 レンジを実際の距離値にスケール（25倍）
         actual_distance = distance * 25.0
 
         if actual_distance == 0:
-            return geometry
+            return coords.copy(), offsets.copy()
 
         # join_styleを文字列に変換
         join_style_str = self._determine_join_style(join_style)
@@ -50,10 +51,7 @@ class Buffer(BaseEffect):
         # 解像度を整数に変換（1-10）
         resolution_int = max(1, min(10, int(resolution * 10)))
 
-        # buffered_results = []  # 未使用変数を削除
-
         # 既存の線を取得
-        coords, offsets = geometry.as_arrays()
         vertices_list = []
         for i in range(len(offsets) - 1):
             vertices = coords[offsets[i] : offsets[i + 1]]
@@ -71,11 +69,21 @@ class Buffer(BaseEffect):
                 vertices = vertices.astype(np.float32)
                 filtered_vertices_list.append(vertices)
 
-        # 有効な頂点がない場合は元のgeometryを返す
+        # 有効な頂点がない場合は元の配列を返す
         if not filtered_vertices_list:
-            return geometry
+            return coords.copy(), offsets.copy()
 
-        return Geometry.from_lines(filtered_vertices_list)
+        # 結果を純粋なnumpy配列として構築
+        all_coords = np.vstack(filtered_vertices_list)
+
+        # 新しいオフセット配列を構築
+        new_offsets = [0]
+        current_offset = 0
+        for line in filtered_vertices_list:
+            current_offset += len(line)
+            new_offsets.append(current_offset)
+
+        return all_coords, np.array(new_offsets, dtype=np.int32)
 
     def _buffer(
         self,
@@ -95,9 +103,7 @@ class Buffer(BaseEffect):
             vertices = self._close_curve(vertices, 1e-3)
 
             # XY平面に変換
-            temp_geom = Geometry.from_lines([vertices])
-            transformed_geom, rotation_matrix, z_offset = geometry_transform_to_xy_plane(temp_geom)
-            vertices_on_xy = transformed_geom.coords
+            vertices_on_xy, rotation_matrix, z_offset = transform_to_xy_plane(vertices)
 
             # ShapelyのLineStringを作成
             line = LineString(vertices_on_xy[:, :2])
@@ -145,9 +151,8 @@ class Buffer(BaseEffect):
             new_vertices = np.hstack([coords, np.zeros((len(coords), 1))])
 
             # 元の3D空間に戻す
-            temp_geom = Geometry.from_lines([new_vertices])
-            restored_geom = geometry_transform_back(temp_geom, rotation_matrix, z_offset)
-            new_vertices_list.append(restored_geom.coords)
+            restored_vertices = transform_back(new_vertices, rotation_matrix, z_offset)
+            new_vertices_list.append(restored_vertices)
 
         return new_vertices_list
 
@@ -167,9 +172,8 @@ class Buffer(BaseEffect):
             new_vertices = np.hstack([coords, np.zeros((len(coords), 1))])
 
             # 元の3D空間に戻す
-            temp_geom = Geometry.from_lines([new_vertices])
-            restored_geom = geometry_transform_back(temp_geom, rotation_matrix, z_offset)
-            new_vertices_list.append(restored_geom.coords)
+            restored_vertices = transform_back(new_vertices, rotation_matrix, z_offset)
+            new_vertices_list.append(restored_vertices)
 
         return new_vertices_list
 

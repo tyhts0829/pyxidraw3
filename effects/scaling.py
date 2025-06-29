@@ -5,7 +5,6 @@ from typing import Any
 import numpy as np
 from numba import njit
 
-from engine.core.geometry import Geometry
 from .base import BaseEffect
 
 
@@ -22,35 +21,35 @@ def _apply_scaling(vertices: np.ndarray, scale_array: np.ndarray, center: np.nda
 class Scaling(BaseEffect):
     """指定された軸に沿って頂点をスケールします。"""
     
-    def apply(self, geometry: Geometry,
+    def apply(self, coords: np.ndarray, offsets: np.ndarray,
              center: tuple[float, float, float] = (0, 0, 0),
              scale: tuple[float, float, float] = (1, 1, 1),
-             **params: Any) -> Geometry:
+             **params: Any) -> tuple[np.ndarray, np.ndarray]:
         """スケールエフェクトを適用します。
         
         Args:
-            geometry: 入力Geometry
+            coords: 入力座標配列
+            offsets: 入力オフセット配列
             center: スケーリングの中心点 (x, y, z)
             scale: 各軸のスケール率 (x, y, z)
             **params: 追加パラメータ（無視される）
             
         Returns:
-            スケールされたGeometry
+            (scaled_coords, offsets): スケールされた座標配列とオフセット配列
         """
         # スケール値がすべて1の場合は元のデータをそのまま返す
         if scale == (1, 1, 1):
-            return geometry
+            return coords.copy(), offsets.copy()
         
         # エッジケース: 空の座標配列
-        if len(geometry.coords) == 0:
-            return geometry
+        if len(coords) == 0:
+            return coords.copy(), offsets.copy()
         
         # NumPy配列に変換
         scale_np = np.array(scale, dtype=np.float32)
         center_np = np.array(center, dtype=np.float32)
         
         # 全頂点にスケーリングを一度に適用
-        scaled_coords = _apply_scaling(geometry.coords, scale_np, center_np)
+        scaled_coords = _apply_scaling(coords, scale_np, center_np)
         
-        # 新しいGeometryを作成（offsetsは変更なし）
-        return Geometry(scaled_coords, geometry.offsets)
+        return scaled_coords, offsets.copy()

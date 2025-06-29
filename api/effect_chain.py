@@ -21,8 +21,6 @@ from effects.scaling import Scaling
 from effects.subdivision import Subdivision
 from effects.transform import Transform
 from effects.translation import Translation
-from engine.core.geometry import Geometry
-from engine.core.geometry_data import GeometryData
 
 from .geometry_api import GeometryAPI
 
@@ -107,26 +105,22 @@ class EffectChain:
     def _apply_single_effect(self, geometry_api: GeometryAPI, step: EffectStep) -> GeometryAPI:
         """単一エフェクトの適用。"""
         if step.effect_name in self._effect_registry:
-            return self._wrap_legacy_effect(
-                self._effect_registry[step.effect_name], 
-                geometry_api, 
-                step.params
-            )
+            # GeometryAPI → numpy配列変換
+            coords, offsets = geometry_api.data.as_arrays()
+            
+            # 純粋なエフェクト処理
+            effect_class = self._effect_registry[step.effect_name]
+            effect_instance = self._create_effect_instance(effect_class)
+            new_coords, new_offsets = effect_instance.apply(coords, offsets, **step.params)
+            
+            # numpy配列 → GeometryAPI変換
+            from engine.core.geometry_data import GeometryData
+            return GeometryAPI(GeometryData(new_coords, new_offsets))
         elif step.effect_name in self._custom_effects:
             return self._custom_effects[step.effect_name](geometry_api, **step.params)
         else:
             raise ValueError(f"Unknown effect: {step.effect_name}")
     
-    def _wrap_legacy_effect(self, effect_class, geometry_api: GeometryAPI, params: dict) -> GeometryAPI:
-        """旧エフェクトをGeometryAPI対応にラップ。"""
-        coords, offsets = geometry_api.data.as_arrays()
-        legacy_geom = Geometry(coords, offsets)
-        
-        # キャッシュ無効化されたエフェクトインスタンスを作成
-        effect_instance = self._create_effect_instance(effect_class)
-        result = effect_instance.apply(legacy_geom, **params)
-        
-        return GeometryAPI(GeometryData(result.coords, result.offsets))
     
     def _create_effect_instance(self, effect_class):
         """キャッシュ無効化されたエフェクトインスタンスを作成。"""
@@ -147,7 +141,7 @@ class EffectChain:
         self._cache[cache_key] = result
         return result
 
-    def _add_step(self, effect_name: str, params: dict = None, **kwargs) -> "EffectChain":
+    def _add_step(self, effect_name: str, params: dict | None = None, **kwargs) -> "EffectChain":
         """新しいエフェクトステップを追加。"""
         if params is None:
             params = kwargs if kwargs else {}

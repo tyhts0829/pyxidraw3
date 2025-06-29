@@ -3,7 +3,6 @@ from __future__ import annotations
 import numpy as np
 from numba import njit
 
-from engine.core.geometry import Geometry
 from util.constants import NOISE_CONST
 
 from .base import BaseEffect
@@ -130,54 +129,33 @@ class Noise(BaseEffect):
 
     def apply(
         self,
-        geometry: Geometry,
+        coords: np.ndarray,
+        offsets: np.ndarray,
         intensity: float = 0.5,
         frequency: tuple | float = (0.5, 0.5, 0.5),
         t: float = 0.0,
         **params,
-    ) -> Geometry:
-        """GeometryにPerlinノイズエフェクトを適用します。
+    ) -> tuple[np.ndarray, np.ndarray]:
+        """座標配列にPerlinノイズエフェクトを適用します。
 
         Args:
-            geometry: 入力Geometry
+            coords: 入力座標配列
+            offsets: 入力オフセット配列
             intensity: ノイズの強度
             frequency: ノイズの周波数（tuple or float）
             t: 時間パラメータ
             **params: 追加パラメータ（BaseEffectとの互換性のため）
 
         Returns:
-            Perlinノイズが適用されたGeometry
+            (new_coords, offsets): ノイズが適用された座標配列とオフセット配列
         """
         # 周波数の正規化
         if isinstance(frequency, (int, float)):
             frequency = (frequency, frequency, frequency)
         elif len(frequency) == 1:
             frequency = (frequency[0], frequency[0], frequency[0])
-
-        # 座標にノイズを適用
-        new_coords = _apply_noise_to_coords(geometry.coords, intensity, frequency, t, perm, grad3)
         
-        # 新しいGeometryを作成して返す
-        return Geometry(new_coords, geometry.offsets.copy())
-
-
-# api.effects用のラッパー関数
-def noise(
-    geometry: Geometry,
-    intensity: float = 0.5,
-    frequency: tuple | float = (0.5, 0.5, 0.5),
-    time: float = 0.0,
-) -> Geometry:
-    """GeometryにPerlinノイズを適用します。
-
-    Args:
-        geometry: 入力Geometry
-        intensity: ノイズの強度 (0.0-1.0)
-        frequency: ノイズの周波数
-        time: 時間パラメータ
-
-    Returns:
-        ノイズが適用されたGeometry
-    """
-    effect = Noise()
-    return effect.apply(geometry, intensity=intensity, frequency=frequency, t=time)
+        # 座標にノイズを適用
+        new_coords = _apply_noise_to_coords(coords, intensity, frequency, t, perm, grad3)
+        
+        return new_coords, offsets.copy()

@@ -6,7 +6,6 @@ from typing import Any
 import numpy as np
 from numba import njit
 
-from engine.core.geometry import Geometry
 from .base import BaseEffect
 
 
@@ -49,33 +48,35 @@ class Transform(BaseEffect):
 
     def apply(
         self,
-        geometry: Geometry,
+        coords: np.ndarray,
+        offsets: np.ndarray,
         center: tuple[float, float, float] = (0, 0, 0),
         scale: tuple[float, float, float] = (1, 1, 1),
         rotate: tuple[float, float, float] = (0, 0, 0),
         **params: Any,
-    ) -> Geometry:
+    ) -> tuple[np.ndarray, np.ndarray]:
         """変換エフェクトを適用します。
 
         Args:
-            geometry: 入力Geometry
+            coords: 入力座標配列
+            offsets: 入力オフセット配列
             center: 変換の中心点 (x, y, z)
             scale: スケール係数 (x, y, z)
             rotate: 回転角度（ラジアン） (x, y, z) 入力は0.0-1.0の範囲を想定。内部でmath.tauを掛けてラジアンに変換される。
             **params: 追加パラメータ（無視される）
 
         Returns:
-            変換されたGeometry
+            (transformed_coords, offsets): 変換された座標配列とオフセット配列
         """
 
         # エッジケース: 空の座標配列
-        if len(geometry.coords) == 0:
-            return geometry
+        if len(coords) == 0:
+            return coords.copy(), offsets.copy()
 
         # エッジケース: 変換がない場合
         if (center == (0, 0, 0) and scale == (1, 1, 1) and 
             abs(rotate[0]) < 1e-10 and abs(rotate[1]) < 1e-10 and abs(rotate[2]) < 1e-10):
-            return geometry
+            return coords.copy(), offsets.copy()
 
         # NumPy配列に変換
         center_np = np.array(center, dtype=np.float32)
@@ -87,7 +88,6 @@ class Transform(BaseEffect):
         ], dtype=np.float32)
 
         # 全頂点に組み合わせ変換を一度に適用
-        transformed_coords = _apply_combined_transform(geometry.coords, center_np, scale_np, rotate_radians)
+        transformed_coords = _apply_combined_transform(coords, center_np, scale_np, rotate_radians)
         
-        # 新しいGeometryを作成（offsetsは変更なし）
-        return Geometry(transformed_coords, geometry.offsets)
+        return transformed_coords, offsets.copy()

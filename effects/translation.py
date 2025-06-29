@@ -5,7 +5,6 @@ from typing import Any
 import numpy as np
 from numba import njit
 
-from engine.core.geometry import Geometry
 from .base import BaseEffect
 
 
@@ -20,36 +19,36 @@ def _apply_translation(vertices: np.ndarray, offset: np.ndarray) -> np.ndarray:
 class Translation(BaseEffect):
     """指定されたオフセットで頂点を移動します。"""
     
-    def apply(self, geometry: Geometry,
+    def apply(self, coords: np.ndarray, offsets: np.ndarray,
              offset_x: float = 0.0,
              offset_y: float = 0.0,
              offset_z: float = 0.0,
-             **params: Any) -> Geometry:
+             **params: Any) -> tuple[np.ndarray, np.ndarray]:
         """移動エフェクトを適用します。
         
         Args:
-            geometry: 入力Geometry
+            coords: 入力座標配列
+            offsets: 入力オフセット配列
             offset_x: X軸の移動オフセット
             offset_y: Y軸の移動オフセット
             offset_z: Z軸の移動オフセット
             **params: 追加パラメータ（無視される）
             
         Returns:
-            移動されたGeometry
+            (translated_coords, offsets): 移動された座標配列とオフセット配列
         """
         # オフセットがゼロの場合は元のデータをそのまま返す
         if offset_x == 0.0 and offset_y == 0.0 and offset_z == 0.0:
-            return geometry
+            return coords.copy(), offsets.copy()
         
         # エッジケース: 空の座標配列
-        if len(geometry.coords) == 0:
-            return geometry
+        if len(coords) == 0:
+            return coords.copy(), offsets.copy()
         
         # Create offset vector
         offset = np.array([offset_x, offset_y, offset_z], dtype=np.float32)
         
         # 全頂点に移動を一度に適用
-        translated_coords = _apply_translation(geometry.coords, offset)
+        translated_coords = _apply_translation(coords, offset)
         
-        # 新しいGeometryを作成（offsetsは変更なし）
-        return Geometry(translated_coords, geometry.offsets)
+        return translated_coords, offsets.copy()
