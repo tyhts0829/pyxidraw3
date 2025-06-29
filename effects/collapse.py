@@ -6,85 +6,160 @@ import numpy as np
 from numba import njit
 
 from .base import BaseEffect
-from .subdivision import _subdivide_core
+
+
+@njit(fastmath=True, cache=True)
+def _subdivide_line(start: np.ndarray, end: np.ndarray, divisions: int) -> np.ndarray:
+    """線分を指定された分割数で細分化します。"""
+    if divisions <= 1:
+        return np.array([start, end])
+    
+    # 細分化されたポイントを生成
+    t_values = np.linspace(0, 1, divisions + 1)
+    points = np.empty((divisions + 1, 3), dtype=np.float32)
+    
+    for i in range(divisions + 1):
+        t = t_values[i]
+        points[i] = start * (1 - t) + end * t
+    
+    return points
+
+
+@njit(fastmath=True, cache=True)
+def _apply_collapse_to_coords(
+    coords: np.ndarray,
+    offsets: np.ndarray,
+    intensity: float,
+    n_divisions: int,
+    seed: int = 0,
+) -> tuple[np.ndarray, np.ndarray]:
+    """座標とオフセット配列にcollapseエフェクトを適用します。"""
+    if intensity == 0.0 or n_divisions == 0:
+        return coords.copy(), offsets.copy()
+    
+    if len(coords) == 0:
+        return coords.copy(), offsets.copy()
+    
+    np.random.seed(seed)
+    
+    # 結果を格納するリスト
+    all_coords = []
+    all_offsets = []
+    
+    # offsetsからポリラインを抽出
+    start_idx = 0
+    for end_idx in offsets:
+        if start_idx >= end_idx:
+            start_idx = end_idx
+            continue
+            
+        vertices = coords[start_idx:end_idx]
+        
+        if vertices.shape[0] < 2:
+            # 単一点の場合はそのまま追加
+            all_coords.append(vertices)
+            all_offsets.append(np.array([vertices.shape[0]], dtype=offsets.dtype))
+            start_idx = end_idx
+            continue
+        
+        # ポリライン内の各線分を処理
+        polyline_coords = []
+        
+        for i in range(vertices.shape[0] - 1):
+            start_point = vertices[i]
+            end_point = vertices[i + 1]
+            
+            # 線分を細分化
+            subdivided = _subdivide_line(start_point, end_point, n_divisions)
+            
+            # 細分化した各セグメントにノイズを適用
+            for j in range(subdivided.shape[0] - 1):
+                seg_start = subdivided[j]
+                seg_end = subdivided[j + 1]
+                
+                # メイン方向を求める
+                main_dir = seg_end - seg_start
+                main_norm = np.linalg.norm(main_dir)
+                if main_norm < 1e-12:
+                    polyline_coords.append(seg_start)
+                    polyline_coords.append(seg_end)
+                    continue
+                    
+                norm_main_dir = main_dir / main_norm
+                
+                # ノイズベクトルを生成
+                noise_vector = np.random.randn(3) / 5.0
+                
+                # ノイズをメイン方向と直交する方向に変換
+                ortho_dir = np.cross(norm_main_dir, noise_vector)
+                ortho_norm = np.linalg.norm(ortho_dir)
+                if ortho_norm < 1e-12:
+                    polyline_coords.append(seg_start)
+                    polyline_coords.append(seg_end)
+                    continue
+                    
+                ortho_dir = ortho_dir / ortho_norm
+                
+                # ノイズを加える
+                noise = ortho_dir * intensity
+                
+                # 変形された線分を追加
+                noisy_start = seg_start + noise
+                noisy_end = seg_end + noise
+                polyline_coords.append(noisy_start)
+                polyline_coords.append(noisy_end)
+        
+        if len(polyline_coords) > 0:
+            polyline_array = np.array(polyline_coords, dtype=coords.dtype)
+            all_coords.append(polyline_array)
+            all_offsets.append(np.array([polyline_array.shape[0]], dtype=offsets.dtype))
+        
+        start_idx = end_idx
+    
+    # すべての座標とオフセットを結合
+    if len(all_coords) == 0:
+        return coords.copy(), offsets.copy()
+        
+    combined_coords = np.vstack(all_coords)
+    combined_offsets = np.cumsum(np.concatenate(all_offsets))
+    
+    return combined_coords, combined_offsets
 
 
 class Collapse(BaseEffect):
     """線分を細分化してノイズで変形するエフェクト。"""
 
     def apply(
-        self, vertices_list: list[np.ndarray], intensity: float = 0.5, n_divisions: float = 0.5, **params: Any
-    ) -> list[np.ndarray]:
+        self,
+        coords: np.ndarray,
+        offsets: np.ndarray,
+        intensity: float = 0.5,
+        n_divisions: float = 0.5,
+        **params: Any
+    ) -> tuple[np.ndarray, np.ndarray]:
         """崩壊エフェクトを適用します。
 
         線分を細分化し、始点-終点方向と直交する方向にノイズを加えて変形します。
 
         Args:
-            vertices_list: 入力頂点配列
+            coords: 入力座標配列
+            offsets: 入力オフセット配列
             intensity: ノイズの強さ (デフォルト 0.5)
             n_divisions: 細分化の度合い (デフォルト 0.5)
             **params: 追加パラメータ
 
         Returns:
-            変形された頂点配列
+            (collapsed_coords, collapsed_offsets): 変形された座標配列とオフセット配列
         """
-        # 空リストの場合は早期リターン
-        if not vertices_list:
-            return []
-
-        # Numba最適化された関数を呼び出し
-        return _apply_collapse_numba(vertices_list, intensity, n_divisions)
-
-
-@njit
-def _apply_collapse_numba(vertices_list, intensity, n_divisions):
-    """Numba最適化された崩壊エフェクト処理"""
-    new_vertices_list = []
-
-    if intensity == 0.0 or n_divisions == 0.0:
-        # 同じ型の新しいリストを返す
-        for i in range(len(vertices_list)):
-            new_vertices_list.append(vertices_list[i])
-        return new_vertices_list
-
-    np.random.seed(0)
-    divisions = max(1, int(n_divisions * 10))
-
-    for i in range(len(vertices_list)):
-        vertices = vertices_list[i]
-        if len(vertices) < 2:
-            new_vertices_list.append(vertices)
-            continue
-
-        # ラインを細分化
-        subdivided = _subdivide_core(vertices, divisions)
-
-        # 細分化したラインのペアを処理
-        for j in range(len(subdivided) - 1):
-            subdivided_vertices = subdivided[j : j + 2]
-
-            # メイン方向を求める
-            main_dir = subdivided_vertices[1] - subdivided_vertices[0]
-            main_norm = np.linalg.norm(main_dir)
-            if main_norm < 1e-12:
-                new_vertices_list.append(subdivided_vertices)
-                continue
-            norm_main_dir = main_dir / main_norm
-
-            # ノイズベクトルを求める
-            noise_vector = np.random.randn(3) / 5.0
-
-            # ノイズをメイン方向と直交する方向に変換
-            ortho_dir = np.cross(norm_main_dir, noise_vector)
-            ortho_norm = np.linalg.norm(ortho_dir)
-            if ortho_norm < 1e-12:
-                new_vertices_list.append(subdivided_vertices)
-                continue
-            ortho_dir = ortho_dir / ortho_norm
-
-            # ノイズを加える（元の型を維持）
-            noise = (ortho_dir * intensity).astype(vertices.dtype)
-            offseted_vertices = subdivided_vertices + noise
-            new_vertices_list.append(offseted_vertices)
-
-    return new_vertices_list
+        # エッジケース: 空の座標配列
+        if len(coords) == 0:
+            return coords.copy(), offsets.copy()
+        
+        # intensity または n_divisions が0の場合は早期リターン
+        if intensity == 0.0 or n_divisions == 0.0:
+            return coords.copy(), offsets.copy()
+        
+        # n_divisionsを整数に変換（最大10分割）
+        divisions = max(1, int(n_divisions * 10))
+        
+        return _apply_collapse_to_coords(coords, offsets, intensity, divisions)

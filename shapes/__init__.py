@@ -1,5 +1,20 @@
+"""
+Shapes module - Internal shape implementations
+
+This module provides the internal shape implementations used by the API layer.
+
+For public API usage, use G from api.shape_factory instead of importing directly.
+
+Example:
+    # Recommended public API
+    from api import G
+    sphere = G.sphere(subdivisions=0.5)
+    
+    # Direct import (internal use only)
+    from shapes.sphere import sphere_data
+"""
+
 from .base import BaseShape
-from .factory import ShapeFactory
 from .polygon import Polygon
 from .sphere import Sphere
 from .grid import Grid
@@ -15,9 +30,8 @@ from .asemic_glyph import AsemicGlyph
 
 __all__ = [
     "BaseShape",
-    "ShapeFactory",
     "Polygon",
-    "Sphere",
+    "Sphere", 
     "Grid",
     "Polyhedron",
     "Lissajous",

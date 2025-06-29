@@ -76,8 +76,10 @@ class EffectChain:
     # カスタムエフェクトのレジストリ
     _custom_effects: Dict[str, Callable] = {}
 
-    # キャッシュ
-    _cache: WeakValueDictionary[tuple, GeometryAPI] = WeakValueDictionary()
+    # 統合キャッシュシステム
+    _chain_cache: WeakValueDictionary[tuple, GeometryAPI] = WeakValueDictionary()  # チェーン全体の結果
+    _step_cache: Dict[tuple, GeometryAPI] = {}  # 個別ステップの結果
+    _step_cache_maxsize: int = 1024
 
     def __init__(self, base_geometry: GeometryAPI):
         """
@@ -103,42 +105,58 @@ class EffectChain:
         return current_api
     
     def _apply_single_effect(self, geometry_api: GeometryAPI, step: EffectStep) -> GeometryAPI:
-        """単一エフェクトの適用。"""
+        """単一エフェクトの適用（統合キャッシュ付き）。"""
+        # ステップレベルのキャッシュキー
+        step_key = (geometry_api.guid, step.effect_name, step.params_hash)
+        
+        # ステップキャッシュをチェック
+        if step_key in self._step_cache:
+            return self._step_cache[step_key]
+        
+        # キャッシュサイズ管理（LRU風に最古のエントリを削除）
+        if len(self._step_cache) >= self._step_cache_maxsize:
+            # 最初のエントリを削除（簡易LRU）
+            oldest_key = next(iter(self._step_cache))
+            del self._step_cache[oldest_key]
+        
+        # エフェクト適用
         if step.effect_name in self._effect_registry:
-            # GeometryAPI → numpy配列変換
-            coords, offsets = geometry_api.data.as_arrays()
-            
-            # 純粋なエフェクト処理
-            effect_class = self._effect_registry[step.effect_name]
-            effect_instance = self._create_effect_instance(effect_class)
-            new_coords, new_offsets = effect_instance.apply(coords, offsets, **step.params)
-            
-            # numpy配列 → GeometryAPI変換
-            from engine.core.geometry_data import GeometryData
-            return GeometryAPI(GeometryData(new_coords, new_offsets))
+            result = self._apply_standard_effect(geometry_api, step)
         elif step.effect_name in self._custom_effects:
-            return self._custom_effects[step.effect_name](geometry_api, **step.params)
+            result = self._custom_effects[step.effect_name](geometry_api, **step.params)
         else:
             raise ValueError(f"Unknown effect: {step.effect_name}")
+        
+        # 結果をキャッシュ
+        self._step_cache[step_key] = result
+        return result
+    
+    def _apply_standard_effect(self, geometry_api: GeometryAPI, step: EffectStep) -> GeometryAPI:
+        """標準エフェクトの適用（ピュア処理）。"""
+        # GeometryAPI → numpy配列変換
+        coords, offsets = geometry_api.data.as_arrays()
+        
+        # 純粋なエフェクト処理（キャッシュなし）
+        effect_class = self._effect_registry[step.effect_name]
+        effect_instance = effect_class()  # disable_cache()呼び出し不要
+        new_coords, new_offsets = effect_instance.apply(coords, offsets, **step.params)
+        
+        # numpy配列 → GeometryAPI変換
+        from engine.core.geometry_data import GeometryData
+        return GeometryAPI(GeometryData(new_coords, new_offsets))
     
     
-    def _create_effect_instance(self, effect_class):
-        """キャッシュ無効化されたエフェクトインスタンスを作成。"""
-        instance = effect_class()
-        if hasattr(instance, 'disable_cache'):
-            instance.disable_cache()  # EffectChainレベルでキャッシュ管理
-        return instance
 
     def _get_result(self) -> GeometryAPI:
-        """結果を取得（キャッシュ使用）。"""
+        """結果を取得（統合キャッシュ使用）。"""
         cache_key = self._get_cache_key()
 
-        if cache_key in self._cache:
-            return self._cache[cache_key]
+        if cache_key in self._chain_cache:
+            return self._chain_cache[cache_key]
 
         # エフェクトを適用して結果を計算
         result = self._apply_effects()
-        self._cache[cache_key] = result
+        self._chain_cache[cache_key] = result
         return result
 
     def _add_step(self, effect_name: str, params: dict | None = None, **kwargs) -> "EffectChain":
@@ -359,8 +377,18 @@ class EffectFactory:
 
     @classmethod
     def clear_cache(cls):
-        """エフェクトキャッシュをクリア。"""
-        EffectChain._cache.clear()
+        """統合キャッシュをクリア。"""
+        EffectChain._chain_cache.clear()
+        EffectChain._step_cache.clear()
+    
+    @classmethod
+    def cache_info(cls) -> dict:
+        """キャッシュ統計情報を取得。"""
+        return {
+            'chain_cache_size': len(EffectChain._chain_cache),
+            'step_cache_size': len(EffectChain._step_cache),
+            'step_cache_maxsize': EffectChain._step_cache_maxsize
+        }
 
 
 # シングルトンインスタンス（E）

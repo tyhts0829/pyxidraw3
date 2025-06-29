@@ -8,7 +8,39 @@ from util.constants import CANVAS_SIZES
 def draw(t, cc):
     """複数のエフェクトをテストするスケッチ"""
 
-    array = G.polyhedron().size(50, 50, 50)
+    array = G.polyhedron(12).size(50, 50, 50)
+    buffer = G.polyhedron(12).size(50, 50, 50)
+    noise = G.polyhedron(12).size(50, 50, 50)
+
+    cw, ch = CANVAS_SIZES["SQUARE_200"]
+    geoms = [array, buffer, noise]
+    for i, geom in enumerate(geoms):
+        # 各形状を配置
+        x_pos = (i + 0.5) * (cw / len(geoms))
+        geom.at(x_pos, ch / 2, 0)
+    # 各形状にエフェクトを適用
+    array = (
+        E.add(array)
+        .array(
+            n_duplicates=0.3,  # 複製数の係数（3個程度）
+            offset=(15, 15, 0),  # 各複製間のオフセット
+            rotate=(0.5, 0.5, 0.5),  # 回転は中立
+            scale=(1.0, 1.0, 1.0),  # スケールは変更なし
+        )
+        .result()
+    )
+    buffer = (
+        E.add(buffer)
+        .noise(intensity=0.3, frequency=2.0, t=0.0)  # 固定値に変更  # ノイズの周波数  # 時間パラメータ
+        .result()
+    )
+    noise = (
+        E.add(noise)
+        .filling(pattern="lines", density=0.8, angle=0.785)  # ラインパターン  # 塗りつぶし密度  # 45度（ラジアン）
+        .result()
+    )
+    return array + buffer + noise  # すべての形状を結合して返す
+
     return array
 
     # テストするエフェクトをリストで指定

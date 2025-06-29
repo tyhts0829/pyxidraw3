@@ -22,11 +22,11 @@ python test_fluent_api.py
 ```python
 import arc
 from api.runner import run_sketch
-from api.shapes import polygon
+from api import G
 
 def draw(t, cc):
     # 時間と共に回転する六角形
-    return polygon(n_sides=6).size(50).at(100, 100).rotate_z(t * 0.1)
+    return G.polygon(n_sides=6).size(50).at(100, 100).rotate_z(t * 0.1)
 
 if __name__ == "__main__":
     arc.start(midi=True)  # MIDI制御を有効化
@@ -51,33 +51,33 @@ pyxidraw2/
 
 ### 基本図形
 ```python
-from api.shapes import polygon, sphere, polyhedron
+from api import G
 
 # 正多角形（三角形〜多角形）
-hex_shape = polygon(n_sides=6).size(50).at(100, 100)
+hex_shape = G.polygon(n_sides=6).size(50).at(100, 100)
 
 # 球体（細分化レベル制御可能）
-sphere_obj = sphere(subdivisions=0.5).scale(100, 100, 100)
+sphere_obj = G.sphere(subdivisions=0.5).scale(100, 100, 100)
 
 # 正多面体（四面体、立方体、八面体、十二面体、二十面体）
-tetrahedron = polyhedron("tetrahedron").scale(80, 80, 80)
+tetrahedron = G.polyhedron(polyhedron_type=0.0).scale(80, 80, 80)
 ```
 
 ### 高度な形状
 ```python
-from api.shapes import lissajous, attractor, torus, text
+from api import G
 
 # リサージュ曲線
-lissa = lissajous(freq_x=3.0, freq_y=2.0).scale(50, 50, 50)
+lissa = G.lissajous(freq_x=3.0, freq_y=2.0).scale(50, 50, 50)
 
 # カオスアトラクター（Lorenz、Rossler、Chua）
-lorenz = attractor("lorenz").scale(5, 5, 5).at(150, 150)
+lorenz = G.attractor(attractor_type="lorenz").scale(5, 5, 5).at(150, 150)
 
 # トーラス
-donut = torus(major_radius=0.8, minor_radius=0.3).scale(100, 100, 100)
+donut = G.torus(major_radius=0.8, minor_radius=0.3).scale(100, 100, 100)
 
 # テキスト
-message = text("HELLO").size(30).at(100, 100)
+message = G.text(text_content="HELLO").size(30).at(100, 100)
 ```
 
 ## ✨ エフェクトシステム
@@ -127,7 +127,7 @@ def draw(t, cc):
     rotation_speed = cc.get(2, 0.5)   # CC#2で回転速度制御
     noise_level = cc.get(3, 0.2)      # CC#3でノイズ強度制御
     
-    base = polygon(n_sides=6).size(size).at(100, 100)
+    base = G.polygon(n_sides=6).size(size).at(100, 100)
     rotating = base.rotate_z(t * rotation_speed)
     final = noise(rotating, intensity=noise_level, time=t)
     
@@ -141,7 +141,7 @@ def advanced_midi_control(t, cc):
     n_sides = int(cc.get(1, 0.5) * 10 + 3)  # 3〜13角形
     
     # 複数パラメータの組み合わせ
-    base = polygon(n_sides=n_sides)
+    base = G.polygon(n_sides=n_sides)
     
     # エフェクトチェーン（MIDIで各段階を制御）
     transformed = transform(base,

@@ -23,12 +23,12 @@ def _get_cached_module(module_name: str, function_name: Optional[str] = None):
                 _cached_modules[cache_key] = getattr(api.effects, function_name)
             else:
                 _cached_modules[cache_key] = api.effects
-        elif module_name == "api.shapes":
-            import api.shapes
+        elif module_name == "api.shape_factory":
+            from api.shape_factory import G
             if function_name:
-                _cached_modules[cache_key] = getattr(api.shapes, function_name)
+                _cached_modules[cache_key] = getattr(G, function_name)
             else:
-                _cached_modules[cache_key] = api.shapes
+                _cached_modules[cache_key] = G
         else:
             raise ValueError(f"Unknown module: {module_name}")
     
@@ -40,16 +40,16 @@ def init_worker():
     # よく使われるモジュールを事前にインポート
     try:
         import api.effects
-        import api.shapes
+        from api.shape_factory import G
         _cached_modules['api.effects'] = api.effects
-        _cached_modules['api.shapes'] = api.shapes
+        _cached_modules['api.shape_factory'] = G
         
         # 個別の関数もキャッシュ
         for func_name in ['noise', 'subdivision', 'extrude', 'filling', 'buffer', 'array']:
             _cached_modules[f'api.effects.{func_name}'] = getattr(api.effects, func_name)
         
         for func_name in ['polygon', 'grid', 'sphere', 'cylinder', 'cone', 'torus']:
-            _cached_modules[f'api.shapes.{func_name}'] = getattr(api.shapes, func_name)
+            _cached_modules[f'api.shape_factory.{func_name}'] = getattr(G, func_name)
             
     except ImportError:
         pass  # インポートエラーは後で処理
@@ -119,46 +119,54 @@ class SerializableShapeTarget:
     def __call__(self):
         """形状を生成"""
         if self.shape_type == "polygon":
-            polygon = _get_cached_module("api.shapes", "polygon")
+            polygon = _get_cached_module("api.shape_factory", "polygon")
             return polygon(**self.params)
         elif self.shape_type == "grid":
-            grid = _get_cached_module("api.shapes", "grid")
-            return grid(**self.params)
+            grid = _get_cached_module("api.shape_factory", "grid")
+            # G.grid expects 'divisions' parameter instead of 'n_divisions'
+            params = self.params.copy()
+            if 'n_divisions' in params:
+                divisions = params.pop('n_divisions')
+                params['divisions'] = divisions[0] if isinstance(divisions, tuple) else divisions
+            return grid(**params)
         elif self.shape_type == "sphere":
-            sphere = _get_cached_module("api.shapes", "sphere")
+            sphere = _get_cached_module("api.shape_factory", "sphere")
             return sphere(**self.params)
         elif self.shape_type == "cylinder":
-            cylinder = _get_cached_module("api.shapes", "cylinder")
+            cylinder = _get_cached_module("api.shape_factory", "cylinder")
             return cylinder(**self.params)
         elif self.shape_type == "cone":
-            cone = _get_cached_module("api.shapes", "cone")
+            cone = _get_cached_module("api.shape_factory", "cone")
             return cone(**self.params)
         elif self.shape_type == "torus":
-            torus = _get_cached_module("api.shapes", "torus")
+            torus = _get_cached_module("api.shape_factory", "torus")
             return torus(**self.params)
         elif self.shape_type == "capsule":
-            capsule = _get_cached_module("api.shapes", "capsule")
+            capsule = _get_cached_module("api.shape_factory", "capsule")
             return capsule(**self.params)
         elif self.shape_type == "polyhedron":
-            polyhedron = _get_cached_module("api.shapes", "polyhedron")
-            return polyhedron(**self.params)
+            polyhedron = _get_cached_module("api.shape_factory", "polyhedron")
+            # G.polyhedron expects 'polyhedron_type' as float instead of 'polygon_type'
+            params = self.params.copy()
+            if 'polygon_type' in params:
+                params['polyhedron_type'] = 0.0  # Default mapping
+                params.pop('polygon_type')
+            return polyhedron(**params)
         elif self.shape_type == "lissajous":
-            lissajous_curve = _get_cached_module("api.shapes", "lissajous_curve")
-            return lissajous_curve(**self.params)
+            lissajous = _get_cached_module("api.shape_factory", "lissajous")
+            return lissajous(**self.params)
         elif self.shape_type == "attractor":
-            if self.params.get("attractor_type") == "lorenz":
-                lorenz_attractor = _get_cached_module("api.shapes", "lorenz_attractor")
-                return lorenz_attractor(**{k: v for k, v in self.params.items() if k != "attractor_type"})
-            elif self.params.get("attractor_type") == "rossler":
-                rossler_attractor = _get_cached_module("api.shapes", "rossler_attractor")
-                return rossler_attractor(**{k: v for k, v in self.params.items() if k != "attractor_type"})
-            else:
-                raise ValueError(f"Unknown attractor type: {self.params.get('attractor_type')}")
+            attractor = _get_cached_module("api.shape_factory", "attractor")
+            return attractor(**self.params)
         elif self.shape_type == "text":
-            text = _get_cached_module("api.shapes", "text")
-            return text(**self.params)
+            text = _get_cached_module("api.shape_factory", "text")
+            # G.text expects 'text_content' parameter instead of 'text'
+            params = self.params.copy()
+            if 'text' in params:
+                params['text_content'] = params.pop('text')
+            return text(**params)
         elif self.shape_type == "asemic_glyph":
-            asemic_glyph = _get_cached_module("api.shapes", "asemic_glyph")
+            asemic_glyph = _get_cached_module("api.shape_factory", "asemic_glyph")
             return asemic_glyph(**self.params)
         else:
             raise ValueError(f"Unknown shape type: {self.shape_type}")
