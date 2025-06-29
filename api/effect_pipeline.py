@@ -137,7 +137,7 @@ class PipelineBuilder:
         self._pipeline = self._pipeline.add_step(EffectStep("buffer", all_params))
         return self
     
-    def array(self, n_duplicates: float = 0.5,
+    def array(self, n_duplicates: float = None,
               offset: tuple[float, float, float] = (0.0, 0.0, 0.0),
               rotate: tuple[float, float, float] = (0.5, 0.5, 0.5),
               scale: tuple[float, float, float] = (0.5, 0.5, 0.5),
@@ -145,13 +145,14 @@ class PipelineBuilder:
               **params) -> 'PipelineBuilder':
         """配列エフェクトをパイプラインに追加"""
         all_params = {
-            "n_duplicates": n_duplicates,
             "offset": offset,
             "rotate": rotate,
             "scale": scale,
             "center": center,
             **params,
         }
+        if n_duplicates is not None:
+            all_params["n_duplicates"] = n_duplicates
         self._pipeline = self._pipeline.add_step(EffectStep("array", all_params))
         return self
     
