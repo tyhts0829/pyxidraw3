@@ -1,7 +1,6 @@
 import arc
-import numpy as np
 
-from api import E, G, GeometryAPI
+from api import E, G
 from api.runner import run_sketch
 from util.constants import CANVAS_SIZES
 
