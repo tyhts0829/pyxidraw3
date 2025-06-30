@@ -7,8 +7,8 @@ import numpy as np
 import pyglet
 from pyglet.window import key
 
-from engine.core.frame_clock import FrameClock
 from api.geometry_api import GeometryAPI
+from engine.core.frame_clock import FrameClock
 from engine.core.render_window import RenderWindow
 from engine.io.manager import connect_midi_controllers
 from engine.io.service import MidiService
@@ -57,7 +57,7 @@ def run_sketch(
 
     # ---- ③ SwapBuffer + Worker/Receiver ---------------------------
     swap_buffer = SwapBuffer()
-    worker_pool = WorkerPool(fps=fps, draw_callback=user_draw, cc_snapshot=midi_service.snapshot)
+    worker_pool = WorkerPool(fps=fps, draw_callback=user_draw, cc_snapshot=midi_service.snapshot, num_workers=workers)
     stream_receiver = StreamReceiver(swap_buffer, worker_pool.result_q)
 
     # ---- ④ Window & ModernGL --------------------------------------
