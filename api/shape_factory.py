@@ -41,7 +41,7 @@ class ShapeFactoryMeta(type):
             # 動的にクラスメソッドを生成
             def shape_method(**params):
                 params_tuple = cls._params_to_tuple(**params)
-                data = cls._cached_shape(name, params_tuple)
+                data = ShapeFactory._cached_shape(name, params_tuple)
                 return GeometryAPI(data)
 
             return shape_method
