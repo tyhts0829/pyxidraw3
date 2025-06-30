@@ -10,19 +10,46 @@ from .base import BaseEffect
 
 @njit(fastmath=True, cache=True)
 def fade(t):
-    """Perlinノイズ用のフェード関数"""
+    """Perlinノイズ用のフェード関数.
+    
+    Args:
+        t: 入力値.
+        
+    Returns:
+        フェード処理された値.
+    """
     return t * t * t * (t * (t * 6 - 15) + 10)
 
 
 @njit(fastmath=True, cache=True)
 def lerp(a, b, t):
-    """線形補間"""
+    """線形補間.
+    
+    Args:
+        a: 開始値.
+        b: 終了値.
+        t: 補間パラメータ.
+        
+    Returns:
+        補間された値.
+    """
     return a + t * (b - a)
 
 
 @njit(fastmath=True, cache=True)
 def grad(hash_val, x, y, z, grad3_array):
-    """勾配ベクトル計算"""
+    """勾配ベクトル計算.
+    
+    Args:
+        hash_val: ハッシュ値.
+        x: X座標.
+        y: Y座標.
+        z: Z座標.
+        grad3_array: 勾配ベクトル配列.
+        
+    Returns:
+        計算された勾配値.
+    """
     # 安全なインデックスアクセス
     idx = int(hash_val) % 12
     g = grad3_array[idx]

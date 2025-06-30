@@ -5,6 +5,7 @@ from typing import Any
 import numpy as np
 
 from engine.core.geometry_data import GeometryData
+from api.shape_registry import register_shape
 from .base import BaseShape
 
 
@@ -31,7 +32,7 @@ def _generate_grid(nx: int, ny: int) -> list[np.ndarray]:
 
     # Generate vertical lines vectorized
     vertical_lines = np.empty((nx, 2, 3), dtype=np.float32)
-    vertical_lines[:, :, 0] = x_coords[:, np.newaxis]  # x coordinates
+    vertical_lines[:, :, 0] = x_coords[:, np.newaxis]  # x coords
     vertical_lines[:, 0, 1] = -0.5  # start y coordinate
     vertical_lines[:, 1, 1] = 0.5  # end y coordinate
     vertical_lines[:, :, 2] = 0.0  # z coordinate
@@ -40,7 +41,7 @@ def _generate_grid(nx: int, ny: int) -> list[np.ndarray]:
     horizontal_lines = np.empty((ny, 2, 3), dtype=np.float32)
     horizontal_lines[:, 0, 0] = -0.5  # start x coordinate
     horizontal_lines[:, 1, 0] = 0.5  # end x coordinate
-    horizontal_lines[:, :, 1] = y_coords[:, np.newaxis]  # y coordinates
+    horizontal_lines[:, :, 1] = y_coords[:, np.newaxis]  # y coords
     horizontal_lines[:, :, 2] = 0.0  # z coordinate
 
     # Store in vertices_list
@@ -50,50 +51,25 @@ def _generate_grid(nx: int, ny: int) -> list[np.ndarray]:
     return vertices_list
 
 
-def grid_data(n_divisions: tuple[float, float] = (0.1, 0.1), center=(0, 0, 0), **params) -> GeometryData:
-    """GeometryDataを直接返すgrid生成関数（API層に依存しない）。
-    
-    Args:
-        n_divisions: (x_divisions, y_divisions) 分割数
-        center: 中心点
-        **params: 追加パラメータ
-        
-    Returns:
-        GeometryData: 生成されたグリッドデータ
-    """
-    MAX_DIVISIONS = 50
-    nx, ny = n_divisions
-    nx = int(nx * MAX_DIVISIONS)
-    ny = int(ny * MAX_DIVISIONS)
-    
-    # グリッド生成
-    vertices_list = _generate_grid(nx, ny)
-    
-    # 中心を適用
-    if center != (0, 0, 0):
-        center_array = np.asarray(center, dtype=np.float32)
-        for i, vertices in enumerate(vertices_list):
-            vertices_list[i] = vertices + center_array
-    
-    return GeometryData.from_lines(vertices_list)
 
 
+@register_shape("grid")
 class Grid(BaseShape):
     """Grid shape generator."""
 
     MAX_DIVISIONS = 50
 
-    def generate(self, n_divisions: tuple[float, float] = (0.1, 0.1), **params: Any) -> GeometryData:
+    def generate(self, subdivisions: tuple[float, float] = (0.1, 0.1), **params: Any) -> GeometryData:
         """Generate a 1x1 square grid with specified divisions.
 
         Args:
-            n_divisions: (x_divisions, y_divisions) as floats 0.0-1.0
+            subdivisions: (x_divisions, y_divisions) as floats 0.0-1.0
             **params: Additional parameters (ignored)
 
         Returns:
             GeometryData object containing grid lines
         """
-        nx, ny = n_divisions
+        nx, ny = subdivisions
         nx = int(nx * Grid.MAX_DIVISIONS)
         ny = int(ny * Grid.MAX_DIVISIONS)
 

@@ -19,8 +19,8 @@ def _calculate_line_normals_3d(vertices: np.ndarray) -> np.ndarray:
 
     # Normals in XY plane (Z component is 0)
     normals = np.zeros_like(directions, dtype=np.float32)
-    normals[:, 0] = -directions[:, 1]  # x = -dy
-    normals[:, 1] = directions[:, 0]  # y = dx
+    normals[:, 0] = -directions[:, 1]  # x = -offset_y
+    normals[:, 1] = directions[:, 0]  # y = offset_x
     normals[:, 2] = 0  # z = 0
 
     # Normalize

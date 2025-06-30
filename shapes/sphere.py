@@ -6,6 +6,7 @@ from typing import Any
 import numpy as np
 
 from engine.core.geometry_data import GeometryData
+from api.shape_registry import register_shape
 
 from .base import BaseShape
 
@@ -21,19 +22,19 @@ def _sphere_cached(subdivisions: int) -> list[np.ndarray]:
         List of vertex arrays for sphere triangles
     """
     # Number of segments based on subdivision level
-    n_segments = 8 * (2**subdivisions)
-    n_rings = n_segments // 2
+    segment_count = 8 * (2**subdivisions)
+    ring_count = segment_count // 2
 
     vertices_list = []
 
     # Generate sphere using latitude/longitude lines
-    for i in range(n_rings):
-        lat1 = np.pi * i / n_rings
-        lat2 = np.pi * (i + 1) / n_rings
+    for i in range(ring_count):
+        lat1 = np.pi * i / ring_count
+        lat2 = np.pi * (i + 1) / ring_count
 
         ring = []
-        for j in range(n_segments + 1):
-            lon = 2 * np.pi * j / n_segments
+        for j in range(segment_count + 1):
+            lon = 2 * np.pi * j / segment_count
 
             # Calculate vertices for this segment
             x1 = np.sin(lat1) * np.cos(lon) * 0.5
@@ -61,17 +62,17 @@ def _sphere_wireframe(subdivisions: int) -> list[np.ndarray]:
     Returns:
         List of vertex arrays for sphere wireframe
     """
-    n_segments = 8 * (2**subdivisions)
-    n_rings = n_segments // 2
+    segment_count = 8 * (2**subdivisions)
+    ring_count = segment_count // 2
 
     vertices_list = []
 
     # Longitude lines
-    for j in range(n_segments):
-        lon = 2 * np.pi * j / n_segments
+    for j in range(segment_count):
+        lon = 2 * np.pi * j / segment_count
         line = []
-        for i in range(n_rings + 1):
-            lat = np.pi * i / n_rings
+        for i in range(ring_count + 1):
+            lat = np.pi * i / ring_count
             x = np.sin(lat) * np.cos(lon) * 0.5
             y = np.sin(lat) * np.sin(lon) * 0.5
             z = np.cos(lat) * 0.5
@@ -79,11 +80,11 @@ def _sphere_wireframe(subdivisions: int) -> list[np.ndarray]:
         vertices_list.append(np.array(line, dtype=np.float32))
 
     # Latitude lines
-    for i in range(1, n_rings):  # Skip poles
-        lat = np.pi * i / n_rings
+    for i in range(1, ring_count):  # Skip poles
+        lat = np.pi * i / ring_count
         line = []
-        for j in range(n_segments + 1):
-            lon = 2 * np.pi * j / n_segments
+        for j in range(segment_count + 1):
+            lon = 2 * np.pi * j / segment_count
             x = np.sin(lat) * np.cos(lon) * 0.5
             y = np.sin(lat) * np.sin(lon) * 0.5
             z = np.cos(lat) * 0.5
@@ -93,35 +94,6 @@ def _sphere_wireframe(subdivisions: int) -> list[np.ndarray]:
     return vertices_list
 
 
-def sphere_data(subdivisions: float = 0.5, sphere_type: float = 0.5, radius: float = 1.0, center=(0, 0, 0), **params) -> GeometryData:
-    """GeometryDataを直接返すsphere生成関数（API層に依存しない）。
-    
-    Args:
-        subdivisions: 細分化レベル（0.0-1.0）
-        sphere_type: 球体タイプ（0.0=wireframe, 1.0=zigzag）
-        radius: 半径
-        center: 中心点
-        **params: 追加パラメータ
-        
-    Returns:
-        GeometryData: 生成された球体データ
-    """
-    # subdivisionを0-5の整数にマップ
-    subdiv_int = max(0, min(5, int(subdivisions * 5)))
-    
-    # sphere_typeでワイヤーフレームかジグザグかを決定
-    if sphere_type < 0.5:
-        vertices_list = _sphere_wireframe(subdiv_int)
-    else:
-        vertices_list = _sphere_zigzag(subdiv_int)
-    
-    # スケールと中心を適用
-    if radius != 1.0 or center != (0, 0, 0):
-        center_array = np.asarray(center, dtype=np.float32)
-        for i, vertices in enumerate(vertices_list):
-            vertices_list[i] = vertices * radius + center_array
-    
-    return GeometryData.from_lines(vertices_list)
 
 
 @lru_cache(maxsize=128)
@@ -134,15 +106,15 @@ def _sphere_zigzag(subdivisions: int) -> list[np.ndarray]:
     Returns:
         List of vertex arrays for sphere spiral
     """
-    n_points = 200 * (2**subdivisions)
+    points = 200 * (2**subdivisions)
 
     vertices = []
     # Golden angle spiral
     golden_angle = np.pi * (3.0 - np.sqrt(5.0))
 
-    for i in range(n_points):
+    for i in range(points):
         # Parametric sphere using golden angle
-        y = 1 - (i / float(n_points - 1)) * 2  # y goes from 1 to -1
+        y = 1 - (i / float(points - 1)) * 2  # y goes from 1 to -1
         radius = np.sqrt(1 - y * y)
 
         theta = golden_angle * i
@@ -272,15 +244,15 @@ def _sphere_rings(subdivisions: int) -> list[np.ndarray]:
     Returns:
         List of vertex arrays for sphere rings
     """
-    n_rings = 5 + 12 * subdivisions  # Number of slices per axis
-    n_segments = 64  # Points per ring
+    ring_count = 5 + 12 * subdivisions  # Number of slices per axis
+    segment_count = 64  # Points per ring
 
     vertices_list = []
 
     # Create horizontal rings at different heights
-    for i in range(n_rings):
+    for i in range(ring_count):
         # Height from -0.5 to 0.5
-        y = -0.5 + (i / (n_rings - 1))
+        y = -0.5 + (i / (ring_count - 1))
 
         # Radius at this height (sphere equation: x² + y² + z² = r²)
         if abs(y) <= 0.5:
@@ -288,8 +260,8 @@ def _sphere_rings(subdivisions: int) -> list[np.ndarray]:
 
             # Generate circle points
             ring_points = []
-            for j in range(n_segments + 1):  # +1 to close the circle
-                angle = 2 * np.pi * j / n_segments
+            for j in range(segment_count + 1):  # +1 to close the circle
+                angle = 2 * np.pi * j / segment_count
                 x = radius * np.cos(angle)
                 z = radius * np.sin(angle)
                 ring_points.append([x, y, z])
@@ -297,9 +269,9 @@ def _sphere_rings(subdivisions: int) -> list[np.ndarray]:
             vertices_list.append(np.array(ring_points, dtype=np.float32))
 
     # Create rings perpendicular to X-axis (slicing along YZ plane)
-    for i in range(n_rings):
+    for i in range(ring_count):
         # X position from -0.5 to 0.5
-        x = -0.5 + (i / (n_rings - 1))
+        x = -0.5 + (i / (ring_count - 1))
 
         # Radius at this X position
         if abs(x) <= 0.5:
@@ -307,8 +279,8 @@ def _sphere_rings(subdivisions: int) -> list[np.ndarray]:
 
             # Generate circle points in YZ plane
             ring_points = []
-            for j in range(n_segments + 1):
-                angle = 2 * np.pi * j / n_segments
+            for j in range(segment_count + 1):
+                angle = 2 * np.pi * j / segment_count
                 y = radius * np.cos(angle)
                 z = radius * np.sin(angle)
                 ring_points.append([x, y, z])
@@ -316,9 +288,9 @@ def _sphere_rings(subdivisions: int) -> list[np.ndarray]:
             vertices_list.append(np.array(ring_points, dtype=np.float32))
 
     # Create rings perpendicular to Z-axis (slicing along XY plane)
-    for i in range(n_rings):
+    for i in range(ring_count):
         # Z position from -0.5 to 0.5
-        z = -0.5 + (i / (n_rings - 1))
+        z = -0.5 + (i / (ring_count - 1))
 
         # Radius at this Z position
         if abs(z) <= 0.5:
@@ -326,8 +298,8 @@ def _sphere_rings(subdivisions: int) -> list[np.ndarray]:
 
             # Generate circle points in XY plane
             ring_points = []
-            for j in range(n_segments + 1):
-                angle = 2 * np.pi * j / n_segments
+            for j in range(segment_count + 1):
+                angle = 2 * np.pi * j / segment_count
                 x = radius * np.cos(angle)
                 y = radius * np.sin(angle)
                 ring_points.append([x, y, z])
@@ -339,6 +311,7 @@ def _sphere_rings(subdivisions: int) -> list[np.ndarray]:
 
 
 
+@register_shape("sphere")
 class Sphere(BaseShape):
     """Sphere shape generator with multiple drawing styles."""
 

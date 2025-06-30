@@ -134,7 +134,7 @@ class Collapse(BaseEffect):
         coords: np.ndarray,
         offsets: np.ndarray,
         intensity: float = 0.5,
-        n_divisions: float = 0.5,
+        subdivisions: float = 0.5,
         **params: Any
     ) -> tuple[np.ndarray, np.ndarray]:
         """崩壊エフェクトを適用します。
@@ -145,7 +145,7 @@ class Collapse(BaseEffect):
             coords: 入力座標配列
             offsets: 入力オフセット配列
             intensity: ノイズの強さ (デフォルト 0.5)
-            n_divisions: 細分化の度合い (デフォルト 0.5)
+            subdivisions: 細分化の度合い (デフォルト 0.5)
             **params: 追加パラメータ
 
         Returns:
@@ -155,11 +155,11 @@ class Collapse(BaseEffect):
         if len(coords) == 0:
             return coords.copy(), offsets.copy()
         
-        # intensity または n_divisions が0の場合は早期リターン
-        if intensity == 0.0 or n_divisions == 0.0:
+        # intensity または subdivisions が0の場合は早期リターン
+        if intensity == 0.0 or subdivisions == 0.0:
             return coords.copy(), offsets.copy()
         
-        # n_divisionsを整数に変換（最大10分割）
-        divisions = max(1, int(n_divisions * 10))
+        # subdivisionsを整数に変換（最大10分割）
+        divisions = max(1, int(subdivisions * 10))
         
         return _apply_collapse_to_coords(coords, offsets, intensity, divisions)

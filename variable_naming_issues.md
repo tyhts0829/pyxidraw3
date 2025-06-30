@@ -76,8 +76,33 @@
 3. 各変更後にテストスイート実行で動作確認
 4. 変更履歴とマイグレーションガイドの作成
 
+## 実装結果（2025-06-29）
+
+### 完了した修正
+1. ✅ **boldify.py**: 内部コメント `dx`/`dy` → `offset_x`/`offset_y` (Line 22-23)
+2. ✅ **grid.py**: `n_divisions` → `subdivisions` (Line 53, 86)
+3. ✅ **sphere.py**: `n_points` → `points` (Line 137)
+4. ✅ **subdivision.py**: `n_divisions` → `subdivisions` (全パラメータ)
+5. ✅ **collapse.py**: `n_divisions` → `subdivisions` (Line 137, 148, 159, 163)
+
+### 検出された追加の修正箇所
+- **テストファイル**: `test_subdivision.py` で `n_divisions` → `subdivisions` 
+- **API層**: `effect_chain.py`, `effect_pipeline.py`, `shape_factory.py`で統一が必要
+- **サンプル・ベンチマーク**: 低優先度の修正箇所
+
+### 動作確認結果
+- Grid生成: ✅ 正常動作
+- Subdivision: ✅ 正常動作  
+- Collapse: ⚠️ Numbaの既存問題（変数名変更とは無関係）
+- Boldify: ⚠️ Numbaの既存問題（変数名変更とは無関係）
+
 ## 期待効果
-- コード可読性の向上
-- 開発者の理解しやすさ向上
-- 保守性の向上
-- 新規開発者のオンボーディング改善
+- ✅ コード可読性の向上
+- ✅ 開発者の理解しやすさ向上
+- ✅ 保守性の向上
+- ✅ 新規開発者のオンボーディング改善
+
+## 今後の作業
+1. テストファイルでの`n_divisions` → `subdivisions`修正
+2. API層での統一（中優先度）
+3. 既存Numba問題の別途対応

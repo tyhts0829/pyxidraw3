@@ -8,8 +8,10 @@ import numpy as np
 
 from .base import BaseShape
 from engine.core.geometry_data import GeometryData
+from api.shape_registry import register_shape
 
 
+@register_shape("polyhedron")
 class Polyhedron(BaseShape):
     """Regular polyhedron shape generator using pre-computed vertex data."""
     

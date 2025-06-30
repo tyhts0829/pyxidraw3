@@ -6,6 +6,7 @@ from typing import Any
 import numpy as np
 
 from engine.core.geometry_data import GeometryData
+from api.shape_registry import register_shape
 from .base import BaseShape
 
 
@@ -18,7 +19,7 @@ def _polygon_cached(n_sides: int) -> np.ndarray:
     Returns:
         Array of vertices
     """
-    # Calculate vertex coordinates
+    # Calculate vertex coords
     t = np.linspace(0, 2 * np.pi, n_sides, endpoint=False)
     x = np.cos(t) * 0.5
     y = np.sin(t) * 0.5
@@ -31,42 +32,8 @@ def _polygon_cached(n_sides: int) -> np.ndarray:
     return vertices
 
 
-def polygon_data(n_sides: int | float = 3, radius: float = 1.0, center=(0, 0, 0), **params) -> GeometryData:
-    """GeometryDataを直接返すpolygon生成関数（API層に依存しない）。
-    
-    Args:
-        n_sides: 辺の数
-        radius: 半径
-        center: 中心点
-        **params: 追加パラメータ
-        
-    Returns:
-        GeometryData: 生成された多角形データ
-    """
-    MIN_SIDES = 3
-    MAX_SIDES = 100 - MIN_SIDES
-    
-    if isinstance(n_sides, float):
-        # 指数マッピング
-        if not (0.0 <= n_sides <= 1.0):
-            n_sides = max(0.0, min(1.0, n_sides))
-        a = 100.0
-        n_sides = int((math.exp(a * n_sides) - 1) / (math.exp(a) - 1) * MAX_SIDES) + MIN_SIDES
-    elif isinstance(n_sides, int):
-        n_sides = max(MIN_SIDES, n_sides)
-    
-    # 多角形の頂点を生成
-    angles = np.linspace(0, 2 * np.pi, n_sides, endpoint=False, dtype=np.float32)
-    pts = np.stack([np.cos(angles), np.sin(angles), np.zeros_like(angles)], axis=1)
-    pts = pts * radius + np.asarray(center, dtype=np.float32)
-    
-    # 多角形を閉じる
-    pts = np.append(pts, pts[0:1], axis=0)
-    
-    offsets = np.array([0, len(pts)], dtype=np.int32)
-    return GeometryData(pts, offsets)
 
-
+@register_shape("polygon")
 class Polygon(BaseShape):
     """Regular polygon shape generator."""
     

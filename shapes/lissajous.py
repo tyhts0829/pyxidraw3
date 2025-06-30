@@ -4,10 +4,12 @@ from typing import Any
 
 import numpy as np
 
+from api.shape_registry import register_shape
 from engine.core.geometry_data import GeometryData
 from .base import BaseShape
 
 
+@register_shape("lissajous")
 class Lissajous(BaseShape):
     """Lissajous curve shape generator."""
     

@@ -87,7 +87,7 @@ class Filling(BaseEffect):
         # Transform to XY plane for easier processing
         vertices_2d, rotation_matrix, z_offset = transform_to_xy_plane(vertices)
 
-        # Get 2D coordinates
+        # Get 2D coords
         coords_2d = vertices_2d[:, :2]
 
         # Apply rotation to polygon if angle is specified

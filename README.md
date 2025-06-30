@@ -372,17 +372,102 @@ logging.basicConfig(level=logging.DEBUG)
 ```
 
 ### プロジェクト拡張
+
+#### 🎨 カスタム形状の追加
+
+PyxiDrawは**レジストリパターン**を採用し、ユーザーが独自の形状を簡単に追加できる仕組みを提供しています：
+
 ```python
-# カスタム形状の追加
-from shapes.base import BaseShape
-from engine.core.geometry import Geometry
+# user_shapes/star.py
+import numpy as np
+from api.shape_registry import register_shape, ValidatedCustomShape
+from engine.core.geometry_data import GeometryData
 
-class MyCustomShape(BaseShape):
-    def create_geometry(self) -> Geometry:
-        # カスタム形状ロジック
-        pass
+@register_shape("star")
+class StarShape(ValidatedCustomShape):
+    """星形を生成するカスタム形状"""
+    
+    def get_default_params(self) -> dict:
+        return {
+            "n_points": 5,
+            "inner_radius": 0.4,
+            "outer_radius": 1.0
+        }
+    
+    def _validate_impl(self, params: dict):
+        if params["n_points"] < 3:
+            raise ValueError("n_points must be at least 3")
+        if params["inner_radius"] >= params["outer_radius"]:
+            raise ValueError("inner_radius must be less than outer_radius")
+    
+    def _generate_impl(self, n_points: int, inner_radius: float, 
+                       outer_radius: float, **params) -> GeometryData:
+        # 星形の頂点を計算
+        angles = np.linspace(0, 2 * np.pi, n_points * 2, endpoint=False)
+        coords = []
+        
+        for i, angle in enumerate(angles):
+            radius = outer_radius if i % 2 == 0 else inner_radius
+            x = radius * np.cos(angle)
+            y = radius * np.sin(angle)
+            coords.append([x, y, 0])
+        
+        # 閉じた線を作成
+        coords.append(coords[0])
+        coords_array = np.array(coords, dtype=np.float32)
+        
+        return GeometryData.from_lines([coords_array])
+```
 
-# カスタムエフェクトの追加
+**使用方法:**
+```python
+from api import G
+import user_shapes.star  # インポートで自動登録
+
+# 標準形状と同じように使用
+star = G.star(n_points=8, inner_radius=0.3).size(100).at(150, 150)
+
+# メソッドチェーンも完全サポート
+animated_star = (G.star(n_points=6)
+                  .size(50)
+                  .at(100, 100)
+                  .rotate_z(t * 0.1))
+```
+
+**簡単な形状の追加例:**
+```python
+# user_shapes/spiral.py
+@register_shape("spiral")
+def spiral_generator(turns: int = 5, points_per_turn: int = 50, 
+                    max_radius: float = 1.0, **params):
+    """螺旋形を生成"""
+    t = np.linspace(0, turns * 2 * np.pi, turns * points_per_turn)
+    radius = np.linspace(0, max_radius, len(t))
+    
+    x = radius * np.cos(t)
+    y = radius * np.sin(t)
+    z = np.zeros_like(x)
+    
+    coords = np.column_stack([x, y, z])
+    return GeometryData.from_lines([coords])
+
+# 使用例
+spiral = G.spiral(turns=10, max_radius=2.0).size(80)
+```
+
+**利用可能な形状の確認:**
+```python
+# 登録されている全形状をリスト表示
+available_shapes = G.list_shapes()
+print(available_shapes)
+# ['asemic_glyph', 'attractor', 'capsule', 'cone', 'cylinder', 'grid', 
+#  'lissajous', 'polygon', 'polyhedron', 'sphere', 'spiral', 'star', 
+#  'text', 'torus']
+```
+
+#### ✨ カスタムエフェクトの追加
+
+```python
 from effects.base import BaseEffect
 
 class MyCustomEffect(BaseEffect):

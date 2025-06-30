@@ -5,6 +5,7 @@ from typing import Any
 import numpy as np
 from numba import njit
 
+from api.shape_registry import register_shape
 from .base import BaseShape
 from engine.core.geometry_data import GeometryData
 
@@ -59,8 +60,8 @@ def _generate_cylinder_horizontal_lines(segments: int, radius: float, z: float) 
 def _generate_hemisphere_latitude_lines(segments: int, latitude_segments: int, radius: float, 
                                        z_offset: float, z_sign: float) -> np.ndarray:
     """半球の緯度線を生成する。"""
-    num_lines = (latitude_segments - 1) * segments
-    lines = np.empty((num_lines, 2, 3), dtype=np.float32)
+    line_count = (latitude_segments - 1) * segments
+    lines = np.empty((line_count, 2, 3), dtype=np.float32)
     
     line_idx = 0
     for lat in range(1, latitude_segments):
@@ -94,8 +95,8 @@ def _generate_hemisphere_latitude_lines(segments: int, latitude_segments: int, r
 def _generate_hemisphere_meridian_lines(segments: int, latitude_segments: int, radius: float,
                                        z_offset: float, z_sign: float) -> np.ndarray:
     """半球の経度線を生成する。"""
-    num_lines = segments * latitude_segments
-    lines = np.empty((num_lines, 2, 3), dtype=np.float32)
+    line_count = segments * latitude_segments
+    lines = np.empty((line_count, 2, 3), dtype=np.float32)
     
     line_idx = 0
     for i in range(segments):
@@ -190,30 +191,31 @@ def _generate_unit_capsule_fast(segments: int, latitude_segments: int) -> np.nda
     
     # 上半球の緯度線
     upper_latitude = _generate_hemisphere_latitude_lines(segments, latitude_segments, radius, half_height, 1.0)
-    num_upper_lat = (latitude_segments - 1) * segments
-    all_lines[start_idx:start_idx + num_upper_lat] = upper_latitude
-    start_idx += num_upper_lat
+    upper_lat_count = (latitude_segments - 1) * segments
+    all_lines[start_idx:start_idx + upper_lat_count] = upper_latitude
+    start_idx += upper_lat_count
     
     # 下半球の緯度線
     lower_latitude = _generate_hemisphere_latitude_lines(segments, latitude_segments, radius, -half_height, -1.0)
-    num_lower_lat = (latitude_segments - 1) * segments
-    all_lines[start_idx:start_idx + num_lower_lat] = lower_latitude
-    start_idx += num_lower_lat
+    lower_lat_count = (latitude_segments - 1) * segments
+    all_lines[start_idx:start_idx + lower_lat_count] = lower_latitude
+    start_idx += lower_lat_count
     
     # 上半球の経度線
     upper_meridian = _generate_hemisphere_meridian_lines(segments, latitude_segments, radius, half_height, 1.0)
-    num_upper_mer = segments * latitude_segments
-    all_lines[start_idx:start_idx + num_upper_mer] = upper_meridian
-    start_idx += num_upper_mer
+    upper_mer_count = segments * latitude_segments
+    all_lines[start_idx:start_idx + upper_mer_count] = upper_meridian
+    start_idx += upper_mer_count
     
     # 下半球の経度線
     lower_meridian = _generate_hemisphere_meridian_lines(segments, latitude_segments, radius, -half_height, -1.0)
-    num_lower_mer = segments * latitude_segments
-    all_lines[start_idx:start_idx + num_lower_mer] = lower_meridian
+    lower_mer_count = segments * latitude_segments
+    all_lines[start_idx:start_idx + lower_mer_count] = lower_meridian
     
     return all_lines
 
 
+@register_shape("capsule")
 class Capsule(BaseShape):
     """数学的計算によるカプセル（半球+円柱）形状生成器。njitで高速化済み。"""
 

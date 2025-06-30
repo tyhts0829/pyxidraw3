@@ -9,6 +9,7 @@ from fontPens.flattenPen import FlattenPen
 from fontTools.pens.recordingPen import RecordingPen
 from fontTools.ttLib import TTFont
 
+from api.shape_registry import register_shape
 from .base import BaseShape
 from engine.core.geometry_data import GeometryData
 
@@ -30,7 +31,7 @@ def _get_initial_offset_fast(total_width: float, align_mode: int) -> float:
 
 @njit(fastmath=True, cache=True)
 def _normalize_vertices_fast(vertices_array: np.ndarray, units_per_em: float) -> np.ndarray:
-    """Normalize vertices to unit coordinates using njit."""
+    """Normalize vertices to unit coords using njit."""
     # Create output array
     normalized = vertices_array.copy()
     
@@ -39,7 +40,7 @@ def _normalize_vertices_fast(vertices_array: np.ndarray, units_per_em: float) ->
     normalized[:, 1] = normalized[:, 1] / units_per_em
     
     # Center vertically and flip Y axis (fonts have baseline at y=0)
-    # Flip Y axis because font coordinates are bottom-to-top
+    # Flip Y axis because font coords are bottom-to-top
     normalized[:, 1] = -normalized[:, 1] + 0.5
     
     return normalized
@@ -238,6 +239,7 @@ class TextRenderer:
 TEXT_RENDERER = TextRenderer()
 
 
+@register_shape("text")
 class Text(BaseShape):
     """Text shape generator using TrueType font rendering."""
 
@@ -439,7 +441,7 @@ class Text(BaseShape):
         return vertices_list
 
     def _normalize_vertices(self, vertices: list, units_per_em: float) -> np.ndarray:
-        """Normalize vertices to unit coordinates."""
+        """Normalize vertices to unit coords."""
         vertices_np = np.array(vertices, dtype=np.float32)
         
         # Use njit-optimized function for normalization
