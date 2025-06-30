@@ -34,18 +34,76 @@ if __name__ == "__main__":
     arc.stop()
 ```
 
+### 🎯 フル機能デモ: simple.py
+
+simple.pyは、PyxiDrawの全機能を実演する包括的なデモアプリケーションです：
+
+```python
+# 実行方法
+python simple.py
+```
+
+**主な特徴:**
+- **球体 + 多面体**の複合図形生成
+- **エフェクトパイプライン**（subdivision → noise → rotation）
+- **リアルタイムMIDI制御**（5つのパラメータ同時制御）
+- **高性能キャッシュ**による最適化
+
 ## 🏗️ システム構成
 
 PyxiDrawは明確な4層アーキテクチャで構成されています：
 
 ```
-pyxidraw2/
+pyxidraw3/
 ├── api/          # 🎯 高レベルユーザーAPI
+│   ├── geometry_api.py    # メソッドチェーン基盤
+│   ├── shape_factory.py   # G (図形ファクトリ)
+│   ├── effect_chain.py    # E (エフェクトチェーン)
+│   ├── effect_pipeline.py # パイプライン機能
+│   └── runner.py          # run_sketch 統合システム
 ├── engine/       # ⚙️ コアシステム（レンダリング、MIDI、並列処理）
+│   ├── core/     # ModernGL レンダリングエンジン
+│   ├── io/       # MIDI/OSC制御システム
+│   ├── pipeline/ # 並列処理パイプライン
+│   └── render/   # 描画・投影処理
 ├── shapes/       # 📐 形状生成ライブラリ
+│   ├── sphere.py         # 球体（5種類の描画スタイル）
+│   ├── polyhedron.py     # 正多面体群
+│   └── grid.py           # グリッド系形状
 ├── effects/      # ✨ エフェクト処理ライブラリ
-└── util/         # 🔧 ユーティリティ・定数
+│   ├── subdivision.py    # Numba最適化 線分細分化
+│   ├── noise.py          # 3D Perlinノイズ
+│   └── rotation.py       # 高速回転行列
+├── util/         # 🔧 ユーティリティ・定数
+└── simple.py     # 📊 フル機能デモアプリケーション
 ```
+
+## 🏛️ アーキテクチャ設計
+
+### レイヤード・アーキテクチャ
+
+```
+┌─────────────────┐    ┌──────────────────┐    ┌─────────────────┐
+│   simple.py     │───▶│   API Layer      │───▶│  Engine Layer   │
+│  (Demo App)     │    │  - G (Geometry)  │    │  - Core Render  │
+│                 │    │  - E (Effects)   │    │  - MIDI/IO      │
+│                 │    │  - run_sketch    │    │  - Pipeline     │
+└─────────────────┘    └──────────────────┘    └─────────────────┘
+         │                       │                       │
+         ▼                       ▼                       ▼
+┌─────────────────┐    ┌──────────────────┐    ┌─────────────────┐
+│   arc Module    │    │ Effects/Shapes   │    │  ModernGL       │
+│  (External)     │    │  - subdivision   │    │  (OpenGL)       │
+│                 │    │  - noise         │    │                 │
+│                 │    │  - rotation      │    │                 │
+└─────────────────┘    └──────────────────┘    └─────────────────┘
+```
+
+**設計原則:**
+- **Facade パターン**: G, E による統一API
+- **Builder パターン**: メソッドチェーンによる直感的構築
+- **キャッシュ戦略**: LRU + WeakValue による多層最適化
+- **並列処理**: SwapBuffer + WorkerPool による高速レンダリング
 
 ## 🎨 形状ライブラリ
 
@@ -204,12 +262,21 @@ PyxiDrawは**最大440倍の高速化**を実現するインテリジェント�
 
 ```python
 # 同じ操作は自動的にキャッシュされ、即座に結果を返却
-sphere1 = sphere(subdivisions=0.5).scale(100, 100, 100)  # 初回計算
-sphere2 = sphere(subdivisions=0.5).scale(100, 100, 100)  # キャッシュヒット（440倍高速）
+sphere1 = G.sphere(subdivisions=0.5).size(100, 100, 100)  # 初回計算
+sphere2 = G.sphere(subdivisions=0.5).size(100, 100, 100)  # キャッシュヒット（440倍高速）
 
 # パラメータが異なれば新たに計算
-sphere3 = sphere(subdivisions=0.6).scale(100, 100, 100)  # 新規計算
+sphere3 = G.sphere(subdivisions=0.6).size(100, 100, 100)  # 新規計算
 ```
+
+### パフォーマンス最適化の実装
+
+- **Numba JIT**: `@njit(fastmath=True, cache=True)` による数値計算高速化
+- **マルチレベルキャッシュ**: 
+  - 形状生成: `@lru_cache(maxsize=128)`
+  - エフェクトチェーン: 統合キャッシュ + ステップレベルキャッシュ
+  - パイプライン: `WeakValueDictionary` による効率的メモリ管理
+- **並列処理**: 6ワーカーによる並列レンダリング
 
 ## 🎛️ 対応MIDIデバイス
 
@@ -227,6 +294,29 @@ arc.start(midi=True)
 
 # MIDI無効モード
 arc.start(midi=False)
+```
+
+### simple.py でのMIDI制御例
+```python
+def draw(t, cc):
+    # MIDIコントローラー値を取得（0.0-1.0範囲）
+    subdivision_val = cc.get(1, 0.5)      # CC#1: subdivision レベル
+    noise_intensity = cc.get(2, 0.3)      # CC#2: noise 強度  
+    rotation_val = cc.get(3, 0.1)         # CC#3: rotation 速度
+    sphere_subdivisions = cc.get(6, 0.5)  # CC#6: sphere 細分化
+    
+    # エフェクトパイプライン構築
+    pipeline = (
+        E.pipeline.subdivision(n_divisions=subdivision_val)
+        .noise(intensity=noise_intensity)
+        .rotation(rotate=(rotation_val, rotation_val, rotation_val))
+    )
+    
+    # 図形生成 + エフェクト適用
+    sphere = G.sphere(subdivisions=sphere_subdivisions).size(80, 80, 80)
+    poly = G.polyhedron().size(80, 80, 80)
+    
+    return pipeline(sphere) + pipeline(poly)
 ```
 
 ## 📊 実行環境設定
@@ -301,11 +391,47 @@ class MyCustomEffect(BaseEffect):
         pass
 ```
 
+## 📈 システム評価
+
+### コード品質スコア (10点満点)
+
+| 項目 | スコア | 評価 |
+|------|--------|------|
+| **アーキテクチャ** | 8/10 | レイヤード設計、Facadeパターンの効果的使用 |
+| **パフォーマンス** | 9/10 | Numba JIT、多層キャッシュによる高速化 |
+| **コード品質** | 7/10 | 型ヒント完備、一部改善の余地 |
+| **保守性** | 6/10 | ハードコーディング問題、設定分散 |
+| **テスタビリティ** | 5/10 | 外部依存強、モック必要 |
+| **セキュリティ** | 6/10 | 基本対策済、入力検証要改善 |
+
+**総合評価: 7.0/10** (良好、改善により8.5+を目指せる)
+
+### 実装ロードマップ
+
+#### 🔴 Phase 1: 即座改善 (1-2週間)
+1. **simple.py 設定定数化** - ハードコーディング解消
+2. **パラメータ流用問題解決** - sphere_type 専用化
+3. **エラーハンドリング追加** - 基本的な例外処理
+4. **座標値動的化** - キャンバスサイズ依存解消
+
+#### 🟡 Phase 2: 中期改善 (1ヶ月)
+1. **設定管理システム** - YAML/JSON 設定ファイル
+2. **入力検証体系化** - パラメータ範囲チェック
+3. **カスタム例外クラス** - エラー種別の明確化
+4. **ログシステム統合** - デバッグ・監視強化
+
+#### 🟢 Phase 3: 長期改善 (3ヶ月)
+1. **テストスイート構築** - 単体・統合テスト
+2. **プロファイリング統合** - パフォーマンス監視
+3. **セキュリティ監査** - 脆弱性対策
+4. **ドキュメント完全化** - API仕様書
+
 ## 🔗 関連リソース
 
+- **コードレビュー詳細**: `simple_py_code_review.md`
 - **アーキテクチャ詳細**: `/CLAUDE.md`
 - **サンプルコード**: `/examples/`
-- **旧アーキテクチャ**: `/previous_design/`
+- **変数命名改善**: `variable_naming_issues.md`
 - **ベンチマーク結果**: `/benchmark_results/`
 
 ## 🎯 学習ロードマップ
