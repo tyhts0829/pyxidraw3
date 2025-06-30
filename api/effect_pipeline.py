@@ -348,7 +348,9 @@ class OptimizedEffectPipeline(EffectPipeline):
             else:
                 if current_group:
                     if len(current_group) > 1:
-                        merged.append(self._merge_effect_group(current_group))
+                        merged_step = self._merge_effect_group(current_group)
+                        if merged_step is not None:
+                            merged.append(merged_step)
                     else:
                         merged.extend(current_group)
                 current_group = [step]
@@ -356,16 +358,18 @@ class OptimizedEffectPipeline(EffectPipeline):
 
         if current_group:
             if len(current_group) > 1:
-                merged.append(self._merge_effect_group(current_group))
+                merged_step = self._merge_effect_group(current_group)
+                if merged_step is not None:
+                    merged.append(merged_step)
             else:
                 merged.extend(current_group)
 
         return merged
 
-    def _merge_effect_group(self, group: List[EffectStep]) -> Optional[EffectStep]:
+    def _merge_effect_group(self, group: List[EffectStep]) -> EffectStep:
         """同種エフェクトグループをマージ"""
         if not group:
-            return None
+            raise ValueError("Cannot merge empty group")
 
         effect_name = group[0].effect_name
 

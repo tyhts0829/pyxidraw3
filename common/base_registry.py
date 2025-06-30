@@ -4,7 +4,7 @@ shapes/ と effects/ の両方で使用する統一されたレジストリシ�
 """
 
 from abc import ABC, abstractmethod
-from typing import Any, Callable, Dict, List, Type
+from typing import Any, Callable, Dict, List, Type, Tuple
 
 
 class BaseRegistry(ABC):
@@ -58,7 +58,7 @@ class CacheableRegistry(BaseRegistry):
 
     def __init__(self):
         super().__init__()
-        self._instance_cache: Dict[tuple, Any] = {}
+        self._instance_cache: Dict[Tuple[str, Tuple[Tuple[str, Any], ...]], Any] = {}
 
     def get_instance(self, name: str, **kwargs) -> Any:
         """インスタンスを取得（キャッシュ機能付き）"""

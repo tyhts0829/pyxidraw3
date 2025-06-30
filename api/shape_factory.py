@@ -67,14 +67,10 @@ class ShapeFactory(metaclass=ShapeFactoryMeta):
         # レジストリから形状生成器を取得
         generator = get_shape_generator(shape_name)
 
-        # 関数またはクラスのどちらかを処理
-        if hasattr(generator, "generate"):
-            # クラスベースの形状
-            instance = generator() if isinstance(generator, type) else generator
-            return instance.generate(**params_dict)
-        else:
-            # 関数ベースの形状
-            return generator(**params_dict)
+        # get_shape_generatorはBaseShapeクラス（Type[BaseShape]）を返す
+        # クラスをインスタンス化して、generateメソッドを呼び出す
+        instance = generator()
+        return instance.generate(**params_dict)
 
     @staticmethod
     def _params_to_tuple(**params) -> tuple:
