@@ -4,25 +4,30 @@ from typing import Any
 
 import numpy as np
 
+from engine.core.geometry import Geometry
+
 from .base import BaseEffect
+from .registry import effect
 
 
+@effect("trimming")
 class Trimming(BaseEffect):
     """線を指定されたパラメータ範囲にトリミングします。"""
     
-    def apply(self, vertices_list: list[np.ndarray], **params: Any) -> list[np.ndarray]:
+    def apply(self, coords: np.ndarray, offsets: np.ndarray, **params: Any) -> tuple[np.ndarray, np.ndarray]:
         """トリミングエフェクトを適用します。
         
         指定された開始と終了パラメータに線をトリミングします。
         
         Args:
-            vertices_list: 入力頂点配列
+            coords: 入力座標配列
+            offsets: 入力オフセット配列
             start_param: 開始パラメータ (0.0 = 開始) - デフォルト 0.0
             end_param: 終了パラメータ (1.0 = 終了) - デフォルト 1.0
             **params: 追加パラメータ
             
         Returns:
-            トリミングされた頂点配列
+            (trimmed_coords, trimmed_offsets): トリミングされた座標配列とオフセット配列
         """
         start_param = params.get('start_param', 0.0)
         end_param = params.get('end_param', 1.0)
@@ -32,8 +37,21 @@ class Trimming(BaseEffect):
         end_param = max(0.0, min(1.0, end_param))
         
         if start_param >= end_param:
-            return []
+            return coords.copy(), offsets.copy()
         
+        # エッジケース: 空の座標配列
+        if len(coords) == 0:
+            return coords.copy(), offsets.copy()
+
+        # 座標配列をGeometryに変換してから頂点リストに変換
+        geometry = Geometry(coords, offsets)
+        vertices_list = []
+        for i in range(len(geometry.offsets) - 1):
+            start_idx = geometry.offsets[i]
+            end_idx = geometry.offsets[i + 1]
+            line = geometry.coords[start_idx:end_idx]
+            vertices_list.append(line)
+
         trimmed_results = []
         
         for vertices in vertices_list:
@@ -45,7 +63,12 @@ class Trimming(BaseEffect):
             if trimmed is not None and len(trimmed) >= 2:
                 trimmed_results.append(trimmed)
         
-        return trimmed_results
+        # 結果をGeometryに変換してから座標とオフセットに戻す
+        if not trimmed_results:
+            return coords.copy(), offsets.copy()
+        
+        result_geometry = Geometry.from_lines(trimmed_results)
+        return result_geometry.coords, result_geometry.offsets
     
     def _trim_path(self, vertices: np.ndarray, start_param: float, end_param: float) -> np.ndarray | None:
         """単一のパスを指定されたパラメータ範囲にトリミングします。"""

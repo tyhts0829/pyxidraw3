@@ -9,7 +9,7 @@ from fontPens.flattenPen import FlattenPen
 from fontTools.pens.recordingPen import RecordingPen
 from fontTools.ttLib import TTFont
 
-from api.shape_registry import register_shape
+from .registry import shape
 from .base import BaseShape
 from engine.core.geometry_data import GeometryData
 
@@ -239,7 +239,7 @@ class TextRenderer:
 TEXT_RENDERER = TextRenderer()
 
 
-@register_shape("text")
+@shape("text")
 class Text(BaseShape):
     """Text shape generator using TrueType font rendering."""
 

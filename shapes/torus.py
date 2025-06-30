@@ -7,7 +7,7 @@ from numba import njit
 
 from .base import BaseShape
 from engine.core.geometry_data import GeometryData
-from api.shape_registry import register_shape
+from .registry import shape
 
 
 @njit(fastmath=True, cache=True)
@@ -56,7 +56,7 @@ def _generate_parallel_line(
 
 
 
-@register_shape("torus")
+@shape("torus")
 class Torus(BaseShape):
     """Torus shape generator."""
 

@@ -5,9 +5,11 @@ from typing import Any
 import numpy as np
 
 from .base import BaseEffect
+from .registry import effect
 from engine.core.geometry import Geometry
 
 
+@effect("extrude")
 class Extrude(BaseEffect):
     """2D形状を3Dに押し出します。"""
     

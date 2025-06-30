@@ -6,7 +6,7 @@ from typing import Any
 import numpy as np
 
 from engine.core.geometry_data import GeometryData
-from api.shape_registry import register_shape
+from .registry import shape
 
 from .base import BaseShape
 
@@ -311,7 +311,7 @@ def _sphere_rings(subdivisions: int) -> list[np.ndarray]:
 
 
 
-@register_shape("sphere")
+@shape("sphere")
 class Sphere(BaseShape):
     """Sphere shape generator with multiple drawing styles."""
 

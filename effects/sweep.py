@@ -4,33 +4,58 @@ from typing import Any
 
 import numpy as np
 
+from engine.core.geometry import Geometry
+
 from .base import BaseEffect
+from .registry import effect
 
 
+@effect("sweep")
 class Sweep(BaseEffect):
     """頂点リストから重複した線セグメントを除去します。"""
     
-    def apply(self, vertices_list: list[np.ndarray], **params: Any) -> list[np.ndarray]:
+    def apply(self, coords: np.ndarray, offsets: np.ndarray, **params: Any) -> tuple[np.ndarray, np.ndarray]:
         """スイープエフェクトを適用します。
         
         すべての頂点配列から重複した線セグメントを除去します。
         これは重なり合うジオメトリのクリーンアップに有用です。
         
         Args:
-            vertices_list: 入力頂点配列
+            coords: 入力座標配列
+            offsets: 入力オフセット配列
             path: スイープするパス（現在の実装では未使用）
             profile: スイープするプロファイル（現在の実装では未使用）
             **params: 追加パラメータ
             
         Returns:
-            重複した線セグメントが除去された頂点配列
+            (swept_coords, swept_offsets): 重複した線セグメントが除去された座標配列とオフセット配列
         """
         path = params.get('path', None)
         profile = params.get('profile', None)
         
+        # エッジケース: 空の座標配列
+        if len(coords) == 0:
+            return coords.copy(), offsets.copy()
+
+        # 座標配列をGeometryに変換してから頂点リストに変換
+        geometry = Geometry(coords, offsets)
+        vertices_list = []
+        for i in range(len(geometry.offsets) - 1):
+            start_idx = geometry.offsets[i]
+            end_idx = geometry.offsets[i + 1]
+            line = geometry.coords[start_idx:end_idx]
+            vertices_list.append(line)
+
         # For now, implement the duplicate removal functionality
         # Future versions could implement actual profile sweeping
-        return self._remove_duplicate_segments(vertices_list)
+        new_vertices_list = self._remove_duplicate_segments(vertices_list)
+        
+        # 結果をGeometryに変換してから座標とオフセットに戻す
+        if not new_vertices_list:
+            return coords.copy(), offsets.copy()
+        
+        result_geometry = Geometry.from_lines(new_vertices_list)
+        return result_geometry.coords, result_geometry.offsets
     
     def _remove_duplicate_segments(self, vertices_list: list[np.ndarray]) -> list[np.ndarray]:
         """頂点リストから重複した線セグメントを除去します。

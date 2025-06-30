@@ -9,8 +9,10 @@ from shapely.geometry.base import BaseGeometry
 from util.geometry import transform_back, transform_to_xy_plane
 
 from .base import BaseEffect
+from .registry import effect
 
 
+@effect("buffer")
 class Buffer(BaseEffect):
     """Shapelyを使用した高精度なバッファー/オフセット処理を行います。"""
 

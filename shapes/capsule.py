@@ -5,7 +5,7 @@ from typing import Any
 import numpy as np
 from numba import njit
 
-from api.shape_registry import register_shape
+from .registry import shape
 from .base import BaseShape
 from engine.core.geometry_data import GeometryData
 
@@ -215,7 +215,7 @@ def _generate_unit_capsule_fast(segments: int, latitude_segments: int) -> np.nda
     return all_lines
 
 
-@register_shape("capsule")
+@shape("capsule")
 class Capsule(BaseShape):
     """数学的計算によるカプセル（半球+円柱）形状生成器。njitで高速化済み。"""
 

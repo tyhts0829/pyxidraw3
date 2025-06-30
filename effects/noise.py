@@ -6,6 +6,7 @@ from numba import njit
 from util.constants import NOISE_CONST
 
 from .base import BaseEffect
+from .registry import effect
 
 
 @njit(fastmath=True, cache=True)
@@ -151,6 +152,7 @@ perm = np.concatenate([perm, perm])  # 0-255までの順列を2回連結
 grad3 = np.array(NOISE_CONST["GRAD3"], dtype=np.float32)
 
 
+@effect("noise")
 class Noise(BaseEffect):
     """3次元頂点にPerlinノイズを追加します。"""
 

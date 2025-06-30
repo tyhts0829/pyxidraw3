@@ -6,6 +6,7 @@ import numpy as np
 from numba import njit
 
 from .base import BaseEffect
+from .registry import effect
 
 
 @njit(fastmath=True, cache=True)
@@ -133,6 +134,7 @@ def _boldify_coords_with_offsets(
     return combined_coords, combined_offsets
 
 
+@effect("boldify")
 class Boldify(BaseEffect):
     """平行線を追加して線を太く見せるエフェクト。
     

@@ -7,6 +7,7 @@ import numpy as np
 from numba import njit
 
 from .base import BaseEffect
+from .registry import effect
 
 
 @njit(fastmath=True, cache=True)
@@ -41,6 +42,7 @@ def _apply_combined_transform(
     return transformed
 
 
+@effect("transform")
 class Transform(BaseEffect):
     """任意の変換行列を適用します。"""
 

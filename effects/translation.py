@@ -6,6 +6,7 @@ import numpy as np
 from numba import njit
 
 from .base import BaseEffect
+from .registry import effect
 
 
 @njit(fastmath=True, cache=True)
@@ -16,6 +17,7 @@ def _apply_translation(vertices: np.ndarray, offset: np.ndarray) -> np.ndarray:
     return translated.astype(np.float32)
 
 
+@effect("translation")
 class Translation(BaseEffect):
     """指定されたオフセットで頂点を移動します。"""
     

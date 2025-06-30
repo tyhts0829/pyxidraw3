@@ -4,7 +4,10 @@ from typing import Any
 
 import numpy as np
 
+from engine.core.geometry import Geometry
+
 from .base import BaseEffect
+from .registry import effect
 
 
 def _wobble_vertices(
@@ -30,6 +33,7 @@ def _wobble_vertices(
     return new_vertices_list
 
 
+@effect("wobble")
 class Wobble(BaseEffect):
     """線にウォブル/波の歪みを追加します。
 
@@ -42,16 +46,18 @@ class Wobble(BaseEffect):
 
     def apply(
         self,
-        vertices_list: list[np.ndarray],
+        coords: np.ndarray,
+        offsets: np.ndarray,
         amplitude: float = 1.0,
         frequency: float | tuple[float, float, float] = (0.1, 0.1, 0.1),
         phase: float = 0.0,
         **params: Any,
-    ) -> list[np.ndarray]:
+    ) -> tuple[np.ndarray, np.ndarray]:
         """ウォブルエフェクトを適用します。
 
         Args:
-            vertices_list: 入力頂点配列
+            coords: 入力座標配列
+            offsets: 入力オフセット配列
             amplitude: ゆらぎの大きさ
             frequency: 各軸 (x, y, z) に対する周波数。
                       float の場合は全軸に同じ値を使用。
@@ -60,7 +66,7 @@ class Wobble(BaseEffect):
             **params: 追加パラメータ（無視される）
 
         Returns:
-            ウォブルが適用された頂点配列
+            (wobbled_coords, offsets): ウォブルが適用された座標配列とオフセット配列
         """
         # frequency を tuple に変換
         freq_tuple: tuple[float, float, float]
@@ -82,11 +88,27 @@ class Wobble(BaseEffect):
             df = 0.5 * self.FREQUENCY_COEF
             freq_tuple = (df, df, df)
 
-        # 空のリストの場合は早期リターン
-        if not vertices_list:
-            return []
+        # エッジケース: 空の座標配列
+        if len(coords) == 0:
+            return coords.copy(), offsets.copy()
+
+        # 座標配列をGeometryに変換してから頂点リストに変換
+        geometry = Geometry(coords, offsets)
+        vertices_list = []
+        for i in range(len(geometry.offsets) - 1):
+            start_idx = geometry.offsets[i]
+            end_idx = geometry.offsets[i + 1]
+            line = geometry.coords[start_idx:end_idx]
+            vertices_list.append(line)
 
         # wobble 関数を呼び出し
-        return _wobble_vertices(
+        wobbled_vertices = _wobble_vertices(
             vertices_list, float(amplitude * self.AMPLITUDE_COEF), freq_tuple, float(phase * self.PHASE_COEF)
         )
+
+        # 結果をGeometryに変換してから座標とオフセットに戻す
+        if not wobbled_vertices:
+            return coords.copy(), offsets.copy()
+        
+        result_geometry = Geometry.from_lines(wobbled_vertices)
+        return result_geometry.coords, result_geometry.offsets

@@ -6,6 +6,7 @@ import numpy as np
 from numba import njit
 
 from .base import BaseEffect
+from .registry import effect
 
 
 @njit(fastmath=True, cache=True)
@@ -126,6 +127,7 @@ def _apply_collapse_to_coords(
     return combined_coords, combined_offsets
 
 
+@effect("collapse")
 class Collapse(BaseEffect):
     """線分を細分化してノイズで変形するエフェクト。"""
 

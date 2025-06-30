@@ -1,21 +1,22 @@
 """
-エフェクトレジストリ - @effectデコレータの実装
-仕様書に記載されている@effectデコレータを提供。
+エフェクトレジストリ - 統一されたレジストリシステム
+shapes/と対称性を保った@effectデコレータの実装
 """
 
 from typing import Dict, Type, Callable, Any
 from .base import BaseEffect
+from common.base_registry import BaseRegistry
 
 
-# グローバルエフェクトレジストリ
-_effect_registry: Dict[str, Type[BaseEffect]] = {}
+# 統一されたレジストリシステム
+_effect_registry = BaseRegistry()
 
 
 def effect(name: str):
     """エフェクトをレジストリに登録するデコレータ。
     
-    仕様書に記載されている@effectデコレータの実装。
-    effects/*.pyでエフェクトクラスを登録するために使用。
+    統一されたレジストリシステムを使用した@effectデコレータ。
+    shapes/の@register_shapeと対称性を保った実装。
     
     Usage:
         @effect("noise")
@@ -28,10 +29,7 @@ def effect(name: str):
     Returns:
         デコレータ関数
     """
-    def decorator(effect_class: Type[BaseEffect]):
-        _effect_registry[name] = effect_class
-        return effect_class
-    return decorator
+    return _effect_registry.register(name)
 
 
 def get_effect(name: str) -> Type[BaseEffect]:
@@ -46,9 +44,7 @@ def get_effect(name: str) -> Type[BaseEffect]:
     Raises:
         KeyError: エフェクトが登録されていない場合
     """
-    if name not in _effect_registry:
-        raise KeyError(f"Effect '{name}' is not registered")
-    return _effect_registry[name]
+    return _effect_registry.get(name)
 
 
 def list_effects() -> list[str]:
@@ -57,9 +53,30 @@ def list_effects() -> list[str]:
     Returns:
         エフェクト名のリスト
     """
-    return list(_effect_registry.keys())
+    return _effect_registry.list_all()
+
+
+def is_effect_registered(name: str) -> bool:
+    """エフェクトが登録されているかチェック。
+    
+    Args:
+        name: エフェクト名
+        
+    Returns:
+        登録されている場合True
+    """
+    return _effect_registry.is_registered(name)
 
 
 def clear_registry():
     """レジストリをクリア（テスト用）。"""
     _effect_registry.clear()
+
+
+def get_registry() -> BaseRegistry:
+    """レジストリインスタンスを取得（ファクトリクラス用）。
+    
+    Returns:
+        レジストリインスタンス
+    """
+    return _effect_registry

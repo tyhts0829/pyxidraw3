@@ -9,7 +9,7 @@ import numpy as np
 from numba import njit
 from scipy.spatial import cKDTree
 
-from api.shape_registry import register_shape
+from .registry import shape
 from .base import BaseShape
 from engine.core.geometry_data import GeometryData
 
@@ -655,7 +655,7 @@ def add_diacritic(
             break  # 1回だけ追加するのでループを抜ける
 
 
-@register_shape("asemic_glyph")
+@shape("asemic_glyph")
 class AsemicGlyph(BaseShape):
     """アセミック文字（抽象的文字）形状生成器。"""
     

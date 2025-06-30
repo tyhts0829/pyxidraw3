@@ -6,6 +6,7 @@ import numpy as np
 from numba import njit
 
 from .base import BaseEffect
+from .registry import effect
 
 
 @njit(fastmath=True, cache=True)
@@ -53,6 +54,7 @@ def _update_scale(current_scale: np.ndarray, scale: np.ndarray) -> np.ndarray:
     return current_scale * scale
 
 
+@effect("array")
 class Array(BaseEffect):
     """入力のコピーを配列状に生成します。"""
 

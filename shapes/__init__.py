@@ -11,10 +11,13 @@ Example:
     sphere = G.sphere(subdivisions=0.5)
     
     # Direct import (internal use only)
-    from shapes.sphere import sphere_data
+    from shapes.sphere import Sphere
 """
 
 from .base import BaseShape
+from .registry import shape, get_shape, list_shapes, is_shape_registered
+
+# Import all shape classes to register them
 from .polygon import Polygon
 from .sphere import Sphere
 from .grid import Grid
@@ -29,7 +32,13 @@ from .text import Text
 from .asemic_glyph import AsemicGlyph
 
 __all__ = [
+    # Base classes and registry
     "BaseShape",
+    "shape",
+    "get_shape",
+    "list_shapes",
+    "is_shape_registered",
+    # Shape classes
     "Polygon",
     "Sphere", 
     "Grid",

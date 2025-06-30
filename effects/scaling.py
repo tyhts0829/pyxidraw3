@@ -6,6 +6,7 @@ import numpy as np
 from numba import njit
 
 from .base import BaseEffect
+from .registry import effect
 
 
 @njit(fastmath=True, cache=True)
@@ -18,6 +19,7 @@ def _apply_scaling(vertices: np.ndarray, scale_array: np.ndarray, center: np.nda
     return result
 
 
+@effect("scaling")
 class Scaling(BaseEffect):
     """指定された軸に沿って頂点をスケールします。"""
     

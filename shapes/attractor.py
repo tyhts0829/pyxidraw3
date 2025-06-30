@@ -5,12 +5,12 @@ from typing import Any
 
 import numpy as np
 
-from api.shape_registry import register_shape
+from .registry import shape
 from .base import BaseShape
 from engine.core.geometry_data import GeometryData
 
 
-@register_shape("attractor")
+@shape("attractor")
 class Attractor(BaseShape):
     """Strange attractor shape generator."""
 

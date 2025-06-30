@@ -1,28 +1,45 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from functools import lru_cache
 from typing import Any
 
 import numpy as np
+from common.cacheable_base import LRUCacheable
 
 from engine.core.geometry_data import GeometryData
 
 
-class BaseShape(ABC):
-    """Base class for all shape generators with built-in caching support."""
-
-    def __init__(self):
-        self._cache_enabled = True
+class BaseShape(LRUCacheable, ABC):
+    """すべてのシェイプのベースクラス。キャッシング機能付きの形状生成を担当します。"""
+    
+    def __init__(self, maxsize: int = 128):
+        super().__init__(maxsize=maxsize)
 
     @abstractmethod
     def generate(self, **params: Any) -> GeometryData:
-        """Generate shape vertices.
+        """形状の頂点を生成します。
 
         Returns:
-            GeometryData object containing the shape data
+            GeometryData: 形状データを含むオブジェクト
         """
         pass
+
+    def _execute(self, **params: Any) -> GeometryData:
+        """実際の処理を実行（キャッシング用）"""
+        # transformパラメータを分離
+        center = params.pop('center', (0, 0, 0))
+        scale = params.pop('scale', (1, 1, 1))
+        rotate = params.pop('rotate', (0, 0, 0))
+        
+        # 基本形状を生成
+        geometry_data = self.generate(**params)
+        
+        # 変換が必要な場合は適用
+        if center != (0, 0, 0) or scale != (1, 1, 1) or rotate != (0, 0, 0):
+            from engine.core import transform_utils as _tf
+            geometry_data = _tf.transform_combined(geometry_data, center, scale, rotate)
+        
+        return geometry_data
 
     def __call__(
         self,
@@ -31,59 +48,12 @@ class BaseShape(ABC):
         rotate: tuple[float, float, float] = (0, 0, 0),
         **params: Any,
     ) -> GeometryData:
-        """Generate shape with automatic caching and transformations."""
-        # Generate base shape
-        if self._cache_enabled:
-            # Convert params to hashable format (excluding transformations)
-            hashable_params = self._make_hashable(params)
-            geometry_data = self._cached_generate(hashable_params)
-        else:
-            geometry_data = self.generate(**params)
-
-        # Apply transformations if any are non-default
-        if center != (0, 0, 0) or scale != (1, 1, 1) or rotate != (0, 0, 0):
-            # Use engine-level transform utilities to avoid API dependency
-            from engine.core import transform_utils as _tf
-            geometry_data = _tf.transform_combined(geometry_data, center, scale, rotate)
-        
-        return geometry_data
-
-    @lru_cache(maxsize=128)
-    def _cached_generate(self, hashable_params: tuple) -> GeometryData:
-        """Cached version of generate method."""
-        params = self._unmake_hashable(hashable_params)
-        return self.generate(**params)
-
-    def _make_hashable(self, params: dict[str, Any]) -> tuple:
-        """Convert parameters to hashable format for caching."""
-        items = []
-        for key, value in sorted(params.items()):
-            if isinstance(value, (list, tuple)):
-                # Convert sequences to tuples
-                items.append((key, tuple(value)))
-            elif isinstance(value, np.ndarray):
-                # Convert numpy arrays to tuples
-                items.append((key, tuple(value.flatten().tolist())))
-            elif callable(value):
-                # Skip callables (they can't be hashed)
-                continue
-            else:
-                items.append((key, value))
-        return tuple(items)
-
-    def _unmake_hashable(self, hashable_params: tuple) -> dict[str, Any]:
-        """Convert hashable parameters back to original format."""
-        return dict(hashable_params)
-
-    def clear_cache(self):
-        """Clear the LRU cache."""
-        if hasattr(self._cached_generate, "cache_clear"):
-            self._cached_generate.cache_clear()
-
-    def disable_cache(self):
-        """Disable caching for this shape."""
-        self._cache_enabled = False
-
-    def enable_cache(self):
-        """Enable caching for this shape."""
-        self._cache_enabled = True
+        """キャッシング機能付きで形状を生成"""
+        # すべてのパラメータを結合してキャッシング
+        all_params = {
+            'center': center,
+            'scale': scale,
+            'rotate': rotate,
+            **params
+        }
+        return super().__call__(**all_params)

@@ -6,12 +6,12 @@ import numpy as np
 
 from .base import BaseShape
 from engine.core.geometry_data import GeometryData
-from api.shape_registry import register_shape
+from .registry import shape
 
 
 
 
-@register_shape("cylinder")
+@shape("cylinder")
 class Cylinder(BaseShape):
     """Cylinder shape generator."""
     

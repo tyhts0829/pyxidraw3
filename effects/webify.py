@@ -10,8 +10,10 @@ from numba.typed import List
 from util.geometry import transform_back, transform_to_xy_plane
 
 from .base import BaseEffect
+from .registry import effect
 
 
+@effect("webify")
 class Webify(BaseEffect):
     """形状にウェブ状のストリング構造を追加します。"""
 

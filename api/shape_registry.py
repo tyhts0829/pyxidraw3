@@ -1,5 +1,6 @@
 """
 形状レジストリシステム - レジストリパターンによる拡張可能な形状管理。
+統一されたレジストリシステムを使用するための互換性レイヤー。
 """
 
 from __future__ import annotations
@@ -8,46 +9,31 @@ from abc import ABC, abstractmethod
 from typing import Callable, Dict, List, Type, Union
 
 from engine.core.geometry_data import GeometryData
-
-# グローバル形状レジストリ
-SHAPE_REGISTRY: Dict[str, Union[Type, Callable]] = {}
+from shapes.registry import shape, get_shape, list_shapes, is_shape_registered, clear_registry
 
 
-def register_shape(name: str):
-    """形状クラスまたは関数をレジストリに登録するデコレータ。
-    
-    Args:
-        name: 形状の登録名（G.sphere() のように使用される）
-    
-    Usage:
-        @register_shape("star")
-        class StarShape:
-            def generate(self, **params) -> GeometryData:
-                # 形状生成ロジック
-                pass
-    """
-    def decorator(cls_or_func):
-        SHAPE_REGISTRY[name] = cls_or_func
-        return cls_or_func
-    return decorator
+# 互換性のためのエイリアス
+register_shape = shape
 
 
 def get_shape_generator(name: str):
-    """登録された形状生成器を取得。"""
-    if name not in SHAPE_REGISTRY:
+    """登録された形状生成器を取得。（互換性のための関数）"""
+    try:
+        return get_shape(name)
+    except KeyError:
         raise ValueError(f"Unknown shape: {name}")
-    return SHAPE_REGISTRY[name]
 
 
 def list_registered_shapes() -> List[str]:
-    """登録されているすべての形状名を返す。"""
-    return sorted(list(SHAPE_REGISTRY.keys()))
+    """登録されているすべての形状名を返す。（互換性のための関数）"""
+    return list_shapes()
 
 
 def unregister_shape(name: str):
     """形状の登録を解除（主にテスト用）。"""
-    if name in SHAPE_REGISTRY:
-        del SHAPE_REGISTRY[name]
+    # clear_registryは全消去なので、個別削除はサポートしない
+    # 将来的にBaseRegistryにunregisterメソッドを追加することを検討
+    pass
 
 
 class CustomShape(ABC):

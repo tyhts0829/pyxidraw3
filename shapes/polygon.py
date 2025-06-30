@@ -6,7 +6,7 @@ from typing import Any
 import numpy as np
 
 from engine.core.geometry_data import GeometryData
-from api.shape_registry import register_shape
+from .registry import shape
 from .base import BaseShape
 
 
@@ -33,7 +33,7 @@ def _polygon_cached(n_sides: int) -> np.ndarray:
 
 
 
-@register_shape("polygon")
+@shape("polygon")
 class Polygon(BaseShape):
     """Regular polygon shape generator."""
     

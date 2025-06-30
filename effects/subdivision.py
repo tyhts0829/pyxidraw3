@@ -8,8 +8,10 @@ from numba import njit
 from engine.core.geometry import Geometry
 
 from .base import BaseEffect
+from .registry import effect
 
 
+@effect("subdivision")
 class Subdivision(BaseEffect):
     """中間点を追加して線を細分化します。"""
 

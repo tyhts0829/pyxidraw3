@@ -7,6 +7,7 @@ import numpy as np
 from numba import njit
 
 from .base import BaseEffect
+from .registry import effect
 
 
 @njit(fastmath=True, cache=True)
@@ -51,6 +52,7 @@ def _apply_rotation_inplace(vertices: np.ndarray, rotation_matrix: np.ndarray, c
     return result
 
 
+@effect("rotation")
 class Rotation(BaseEffect):
     """指定された軸周りに頂点を回転します。"""
 

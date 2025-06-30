@@ -4,27 +4,45 @@ from typing import Any
 
 import numpy as np
 
+from engine.core.geometry import Geometry
+
 from .base import BaseEffect
+from .registry import effect
 
 
+@effect("dashify")
 class Dashify(BaseEffect):
     """連続線を破線に変換します。"""
     
-    def apply(self, vertices_list: list[np.ndarray],
+    def apply(self, coords: np.ndarray, offsets: np.ndarray,
              dash_length: float = 0.1,
              gap_length: float = 0.05,
-             **params: Any) -> list[np.ndarray]:
+             **params: Any) -> tuple[np.ndarray, np.ndarray]:
         """破線化エフェクトを適用します。
         
         Args:
-            vertices_list: 入力頂点配列
+            coords: 入力座標配列
+            offsets: 入力オフセット配列
             dash_length: 各ダッシュの長さ
             gap_length: ダッシュ間のギャップの長さ
             **params: 追加パラメータ（無視される）
             
         Returns:
-            破線化された頂点配列
+            (dashed_coords, dashed_offsets): 破線化された座標配列とオフセット配列
         """
+        # エッジケース: 空の座標配列
+        if len(coords) == 0:
+            return coords.copy(), offsets.copy()
+
+        # 座標配列をGeometryに変換してから頂点リストに変換
+        geometry = Geometry(coords, offsets)
+        vertices_list = []
+        for i in range(len(geometry.offsets) - 1):
+            start_idx = geometry.offsets[i]
+            end_idx = geometry.offsets[i + 1]
+            line = geometry.coords[start_idx:end_idx]
+            vertices_list.append(line)
+
         new_vertices_list = []
         pattern_length = dash_length + gap_length
         
@@ -60,7 +78,12 @@ class Dashify(BaseEffect):
                 
                 current_distance += pattern_length
         
-        return new_vertices_list
+        # 結果をGeometryに変換してから座標とオフセットに戻す
+        if not new_vertices_list:
+            return coords.copy(), offsets.copy()
+        
+        result_geometry = Geometry.from_lines(new_vertices_list)
+        return result_geometry.coords, result_geometry.offsets
     
     def _interpolate_segment(self, vertices: np.ndarray, cumulative_distances: np.ndarray,
                            start_dist: float, end_dist: float) -> np.ndarray:

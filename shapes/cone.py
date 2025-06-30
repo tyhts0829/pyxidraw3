@@ -6,12 +6,12 @@ import numpy as np
 
 from .base import BaseShape
 from engine.core.geometry_data import GeometryData
-from api.shape_registry import register_shape
+from .registry import shape
 
 
 
 
-@register_shape("cone")
+@shape("cone")
 class Cone(BaseShape):
     """Cone shape generator."""
     

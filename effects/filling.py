@@ -8,8 +8,10 @@ from numba import njit
 from util.geometry import transform_back, transform_to_xy_plane
 
 from .base import BaseEffect
+from .registry import effect
 
 
+@effect("filling")
 class Filling(BaseEffect):
     """閉じた形状をハッチングパターンで塗りつぶします。"""
 

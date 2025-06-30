@@ -5,7 +5,10 @@ from typing import Any, List
 import numpy as np
 from numba import njit
 
+from engine.core.geometry import Geometry
+
 from .base import BaseEffect
+from .registry import effect
 
 # Constants
 MAX_ALPHA = 2.0
@@ -132,31 +135,49 @@ def _connect_core(
     return result_array, output_starts, output_lengths
 
 
+@effect("connect")
 class Connect(BaseEffect):
     """Catmull-Romスプラインを使用して複数の線を滑らかに接続します。"""
     
-    def apply(self, vertices_list: list[np.ndarray], 
+    def apply(self, coords: np.ndarray, offsets: np.ndarray, 
              n_points: float = 0.5,
              alpha: float = 0.0,
              cyclic: bool = False,
-             **params: Any) -> list[np.ndarray]:
+             **params: Any) -> tuple[np.ndarray, np.ndarray]:
         """接続エフェクトを適用します。
         
         Args:
-            vertices_list: 入力頂点配列
-            n_points: 補間点数 (0.0-1.0、0-50にマッピング)
-            alpha: スプラインテンションパラメータ (0.0-1.0、0-2にマッピング)
+            coords: 入力座標配列
+            offsets: 入力オフセット配列
+            n_points: 補間点数 (0.0-1.0、MAX_N_POINTSにマッピング)
+            alpha: スプラインテンションパラメータ (0.0-1.0、MAX_ALPHAにマッピング)
             cyclic: 最後の線を最初の線に接続するか
             **params: 追加パラメータ（無視される）
             
         Returns:
-            接続された頂点配列
+            (connected_coords, connected_offsets): 接続された座標配列とオフセット配列
         """
         alpha = alpha * MAX_ALPHA
         n_points = int(n_points * MAX_N_POINTS)
         
-        if n_points < 2 or len(vertices_list) <= 1:
-            return vertices_list
+        if n_points < 2:
+            return coords.copy(), offsets.copy()
+        
+        # エッジケース: 空の座標配列
+        if len(coords) == 0:
+            return coords.copy(), offsets.copy()
+
+        # 座標配列をGeometryに変換してから頂点リストに変換
+        geometry = Geometry(coords, offsets)
+        vertices_list = []
+        for i in range(len(geometry.offsets) - 1):
+            start_idx = geometry.offsets[i]
+            end_idx = geometry.offsets[i + 1]
+            line = geometry.coords[start_idx:end_idx]
+            vertices_list.append(line)
+
+        if len(vertices_list) <= 1:
+            return coords.copy(), offsets.copy()
         
         # Consolidate line data into single array with index info
         total_vertices = sum(len(line) for line in vertices_list)
@@ -183,4 +204,9 @@ class Connect(BaseEffect):
             length = output_lengths[i]
             new_lines.append(result_array[start:start + length].copy())
         
-        return new_lines
+        # 結果をGeometryに変換してから座標とオフセットに戻す
+        if not new_lines:
+            return coords.copy(), offsets.copy()
+        
+        result_geometry = Geometry.from_lines(new_lines)
+        return result_geometry.coords, result_geometry.offsets
