@@ -29,6 +29,8 @@ CANVAS_SIZES: Dict[str, Tuple[int, int]] = {
     "SQUARE_300": (300, 300),  # 300mm正方形（3Dプリンタの最大サイズ）
 }
 
+PRIMITIVE_RESTART_INDEX = 0xFFFFFFFF  # OpenGLのプリミティブリスタート用インデックス値
+
 # Perlinノイズ用定数
 # Ken Perlinによるimproved noise algorithm (2002) で使用される定数
 NOISE_CONST: Dict[str, Union[List[int], List[List[int]]]] = {
@@ -293,21 +295,21 @@ NOISE_CONST: Dict[str, Union[List[int], List[List[int]]]] = {
     # Perlinノイズの各格子点での勾配方向を決定するために使用
     # これらのベクトルは正規化されていないが、すべて同じ長さ（√2）を持つ
     "GRAD3": [
-        [1, 1, 0],    # 正のX-Y平面
-        [-1, 1, 0],   # 負のX、正のY平面
-        [1, -1, 0],   # 正のX、負のY平面
+        [1, 1, 0],  # 正のX-Y平面
+        [-1, 1, 0],  # 負のX、正のY平面
+        [1, -1, 0],  # 正のX、負のY平面
         [-1, -1, 0],  # 負のX-Y平面
-        [1, 0, 1],    # 正のX-Z平面
-        [-1, 0, 1],   # 負のX、正のZ平面
-        [1, 0, -1],   # 正のX、負のZ平面
+        [1, 0, 1],  # 正のX-Z平面
+        [-1, 0, 1],  # 負のX、正のZ平面
+        [1, 0, -1],  # 正のX、負のZ平面
         [-1, 0, -1],  # 負のX-Z平面
-        [0, 1, 1],    # 正のY-Z平面
-        [0, -1, 1],   # 負のY、正のZ平面
-        [0, 1, -1],   # 正のY、負のZ平面
+        [0, 1, 1],  # 正のY-Z平面
+        [0, -1, 1],  # 負のY、正のZ平面
+        [0, 1, -1],  # 正のY、負のZ平面
         [0, -1, -1],  # 負のY-Z平面
     ],
 }
 
 # 型エイリアスの定義（より明確な型表現のため）
 PaperSize = Tuple[int, int]  # (幅, 高さ) in mm
-GradientVector = List[int]   # [x, y, z] 成分
+GradientVector = List[int]  # [x, y, z] 成分

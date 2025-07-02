@@ -23,6 +23,7 @@ import moderngl as mgl
 import numpy as np
 
 from api.geometry_api import GeometryAPI
+from util.constants import PRIMITIVE_RESTART_INDEX
 
 from ..core.tickable import Tickable
 from ..pipeline.buffer import SwapBuffer
@@ -41,7 +42,6 @@ class LineRenderer(Tickable):
         mgl_context: mgl.Context,
         projection_matrix: np.ndarray,
         double_buffer: SwapBuffer,
-        primitive_restart_index: int = 0xFFFFFFFF,
     ):
         """
         double_buffer: GPUへ送る前のデータを管理する仕組み
@@ -58,7 +58,7 @@ class LineRenderer(Tickable):
         self.gpu = LineMesh(
             ctx=mgl_context,
             program=self.line_program,
-            primitive_restart_index=primitive_restart_index,
+            primitive_restart_index=PRIMITIVE_RESTART_INDEX,
         )
 
     # --------------------------------------------------------------------- #

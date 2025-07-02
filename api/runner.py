@@ -28,7 +28,7 @@ def run_sketch(
     render_scale: int = 4,
     fps: int = 60,
     background: tuple[float, float, float, float] = (1.0, 1.0, 1.0, 1.0),
-    workers: int = 6,
+    workers: int = 4,
 ) -> None:
     """
     user_draw :

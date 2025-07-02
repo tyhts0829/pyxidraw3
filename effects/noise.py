@@ -12,10 +12,10 @@ from .registry import effect
 @njit(fastmath=True, cache=True)
 def fade(t):
     """Perlinノイズ用のフェード関数.
-    
+
     Args:
         t: 入力値.
-        
+
     Returns:
         フェード処理された値.
     """
@@ -25,12 +25,12 @@ def fade(t):
 @njit(fastmath=True, cache=True)
 def lerp(a, b, t):
     """線形補間.
-    
+
     Args:
         a: 開始値.
         b: 終了値.
         t: 補間パラメータ.
-        
+
     Returns:
         補間された値.
     """
@@ -40,14 +40,14 @@ def lerp(a, b, t):
 @njit(fastmath=True, cache=True)
 def grad(hash_val, x, y, z, grad3_array):
     """勾配ベクトル計算.
-    
+
     Args:
         hash_val: ハッシュ値.
         x: X座標.
         y: Y座標.
         z: Z座標.
         grad3_array: 勾配ベクトル配列.
-        
+
     Returns:
         計算された勾配値.
     """
@@ -131,7 +131,7 @@ def _apply_noise_to_coords(
 
     # 係数調整
     intensity = intensity * 10
-    t_offset = np.float32(t * 0.01 + 1000.0)
+    t_offset = np.float32(t * 10 + 1000.0)
 
     # オフセット付き頂点を作成
     offset_coords = coords + t_offset
@@ -183,8 +183,8 @@ class Noise(BaseEffect):
             frequency = (frequency, frequency, frequency)
         elif len(frequency) == 1:
             frequency = (frequency[0], frequency[0], frequency[0])
-        
+
         # 座標にノイズを適用
         new_coords = _apply_noise_to_coords(coords, intensity, frequency, t, perm, grad3)
-        
+
         return new_coords, offsets.copy()

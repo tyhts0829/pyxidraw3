@@ -6,54 +6,13 @@ from typing import Any
 import numpy as np
 
 from engine.core.geometry_data import GeometryData
-from .registry import shape
 
 from .base import BaseShape
+from .registry import shape
 
 
 @lru_cache(maxsize=128)
-def _sphere_cached(subdivisions: int) -> list[np.ndarray]:
-    """Generate sphere vertices using latitude/longitude lines.
-
-    Args:
-        subdivisions: Subdivision level (0-5)
-
-    Returns:
-        List of vertex arrays for sphere triangles
-    """
-    # Number of segments based on subdivision level
-    segment_count = 8 * (2**subdivisions)
-    ring_count = segment_count // 2
-
-    vertices_list = []
-
-    # Generate sphere using latitude/longitude lines
-    for i in range(ring_count):
-        lat1 = np.pi * i / ring_count
-        lat2 = np.pi * (i + 1) / ring_count
-
-        ring = []
-        for j in range(segment_count + 1):
-            lon = 2 * np.pi * j / segment_count
-
-            # Calculate vertices for this segment
-            x1 = np.sin(lat1) * np.cos(lon) * 0.5
-            y1 = np.sin(lat1) * np.sin(lon) * 0.5
-            z1 = np.cos(lat1) * 0.5
-
-            x2 = np.sin(lat2) * np.cos(lon) * 0.5
-            y2 = np.sin(lat2) * np.sin(lon) * 0.5
-            z2 = np.cos(lat2) * 0.5
-
-            ring.extend([[x1, y1, z1], [x2, y2, z2]])
-
-        vertices_list.append(np.array(ring, dtype=np.float32))
-
-    return vertices_list
-
-
-@lru_cache(maxsize=128)
-def _sphere_wireframe(subdivisions: int) -> list[np.ndarray]:
+def _sphere_latlon(subdivisions: int) -> list[np.ndarray]:
     """Generate sphere wireframe using longitude/latitude lines only.
 
     Args:
@@ -62,8 +21,8 @@ def _sphere_wireframe(subdivisions: int) -> list[np.ndarray]:
     Returns:
         List of vertex arrays for sphere wireframe
     """
-    segment_count = 8 * (2**subdivisions)
-    ring_count = segment_count // 2
+    segment_count = 16 + 32 * subdivisions  # Number of segments per ring
+    ring_count = segment_count // 2  # Number of rings (latitude lines)
 
     vertices_list = []
 
@@ -94,8 +53,6 @@ def _sphere_wireframe(subdivisions: int) -> list[np.ndarray]:
     return vertices_list
 
 
-
-
 @lru_cache(maxsize=128)
 def _sphere_zigzag(subdivisions: int) -> list[np.ndarray]:
     """Generate sphere using zigzag pattern.
@@ -106,7 +63,7 @@ def _sphere_zigzag(subdivisions: int) -> list[np.ndarray]:
     Returns:
         List of vertex arrays for sphere spiral
     """
-    points = 200 * (2**subdivisions)
+    points = 16 + 32 * subdivisions  # Number of points in the spiral
 
     vertices = []
     # Golden angle spiral
@@ -176,39 +133,53 @@ def _sphere_icosphere(subdivisions: int) -> list[np.ndarray]:
     # Base triangular faces for icosahedron
     base_faces = [
         # Top cap triangles
-        (0, 11, 5), (0, 5, 1), (0, 1, 7), (0, 7, 10), (0, 10, 11),
+        (0, 11, 5),
+        (0, 5, 1),
+        (0, 1, 7),
+        (0, 7, 10),
+        (0, 10, 11),
         # Bottom cap triangles
-        (3, 9, 4), (3, 4, 2), (3, 2, 6), (3, 6, 8), (3, 8, 9),
+        (3, 9, 4),
+        (3, 4, 2),
+        (3, 2, 6),
+        (3, 6, 8),
+        (3, 8, 9),
         # Middle band triangles
-        (1, 5, 9), (5, 11, 4), (11, 10, 2), (10, 7, 6), (7, 1, 8),
-        (9, 5, 4), (4, 11, 2), (2, 10, 6), (6, 7, 8), (8, 1, 9)
+        (1, 5, 9),
+        (5, 11, 4),
+        (11, 10, 2),
+        (10, 7, 6),
+        (7, 1, 8),
+        (9, 5, 4),
+        (4, 11, 2),
+        (2, 10, 6),
+        (6, 7, 8),
+        (8, 1, 9),
     ]
 
     def subdivide_triangle(v1, v2, v3, level):
         """Recursively subdivide a triangle into smaller triangles."""
         if level <= 0:
             # Base case: return the triangle edges
-            return [
-                (v1, v2), (v2, v3), (v3, v1)
-            ]
-        
+            return [(v1, v2), (v2, v3), (v3, v1)]
+
         # Calculate midpoints and project to sphere surface
         def midpoint_on_sphere(p1, p2):
             mid = (p1 + p2) / 2
             norm = np.linalg.norm(mid)
             return mid / norm * 0.5  # Project to sphere radius 0.5
-        
+
         m1 = midpoint_on_sphere(v1, v2)
         m2 = midpoint_on_sphere(v2, v3)
         m3 = midpoint_on_sphere(v3, v1)
-        
+
         # Recursively subdivide the 4 new triangles
         edges = []
         edges.extend(subdivide_triangle(v1, m1, m3, level - 1))
         edges.extend(subdivide_triangle(m1, v2, m2, level - 1))
         edges.extend(subdivide_triangle(m3, m2, v3, level - 1))
         edges.extend(subdivide_triangle(m1, m2, m3, level - 1))
-        
+
         return edges
 
     # Generate all edges with subdivision
@@ -221,11 +192,11 @@ def _sphere_icosphere(subdivisions: int) -> list[np.ndarray]:
     # Convert edges to vertex arrays, removing duplicates
     vertices_list = []
     seen_edges = set()
-    
+
     for edge in all_edges:
         # Create a hashable representation of the edge
         edge_key = tuple(sorted([tuple(edge[0]), tuple(edge[1])]))
-        
+
         if edge_key not in seen_edges:
             seen_edges.add(edge_key)
             line = np.array([edge[0], edge[1]], dtype=np.float32)
@@ -309,8 +280,6 @@ def _sphere_rings(subdivisions: int) -> list[np.ndarray]:
     return vertices_list
 
 
-
-
 @shape("sphere")
 class Sphere(BaseShape):
     """Sphere shape generator with multiple drawing styles."""
@@ -336,22 +305,19 @@ class Sphere(BaseShape):
         subdivisions_int = int(subdivisions * MAX_SUBDIVISIONS)
         if subdivisions_int < MIN_SUBDIVISIONS:
             subdivisions_int = MIN_SUBDIVISIONS
+        if subdivisions_int > MAX_SUBDIVISIONS:
+            subdivisions_int = MAX_SUBDIVISIONS
 
         # Select sphere generation method based on sphere_type
         if sphere_type < 0.2:
-            # Default lat-lon style
-            vertices_list = _sphere_cached(subdivisions_int)
+            vertices_list = _sphere_latlon(subdivisions_int)
         elif sphere_type < 0.4:
-            # Wireframe style
-            vertices_list = _sphere_wireframe(subdivisions_int)
-        elif sphere_type < 0.6:
-            # Zigzag style
             vertices_list = _sphere_zigzag(subdivisions_int)
-        elif sphere_type < 0.8:
-            # Icosphere style
+        elif sphere_type < 0.6:
             vertices_list = _sphere_icosphere(subdivisions_int)
-        else:
-            # Rings style
+        elif sphere_type < 0.8:
             vertices_list = _sphere_rings(subdivisions_int)
+        else:
+            vertices_list = _sphere_latlon(subdivisions_int)
 
         return GeometryData.from_lines(vertices_list)
