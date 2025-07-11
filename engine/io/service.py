@@ -37,7 +37,7 @@ class MidiService(Tickable):
             既に接続済みの ``MidiControllerManager`` インスタンス。
         """
         self._manager = controller_manager
-        self._latest_cc_flat_cache: Dict[int, int] = {}
+        self._latest_cc_flat_cache: Dict[int, float] = {}
 
     # ------------------------------------------------------------------ #
     # Tickable interface                                                 #
@@ -51,7 +51,7 @@ class MidiService(Tickable):
     # ------------------------------------------------------------------ #
     # Public API                                                         #
     # ------------------------------------------------------------------ #
-    def snapshot(self) -> Mapping[int, int]:
+    def snapshot(self) -> Mapping[int, float]:
         """“最新 CC 値” のイミュータブルスナップショットを返す。
 
         WorkerSubsystem の ``cc_supplier`` にそのまま渡せる形
@@ -68,7 +68,7 @@ class MidiService(Tickable):
     # ------------------------------------------------------------------ #
     # 内部ユーティリティ                                                 #
     # ------------------------------------------------------------------ #
-    def _flatten_cc_values(self) -> Dict[int, int]:
+    def _flatten_cc_values(self) -> Dict[int, float]:
         """複数コントローラの CC 値を “CC 番号ベース” に 1 辞書へ統合。
 
         - **同じ CC 番号が複数デバイスで競合する場合**
@@ -77,9 +77,25 @@ class MidiService(Tickable):
           オーバーライドした派生クラスを作ると良い。
         self._manager.controllersはマルチスレッド環境での共有リソースではないので、スレッドセーフ対策は不要
         """
-        flat: Dict[int, int] = {}
+        flat: Dict[int, float] = {}
         for controller in self._manager.controllers.values():
-            for cc_num, value in controller.cc.items():
-                if cc_num not in flat:
+            # DualKeyDictの場合は整数キーのみアクセス可能
+            # 文字列キーから対応する整数キーを取得して値を設定
+            if hasattr(controller.cc, '_str_to_value') and hasattr(controller.cc, '_reverse_cc_map'):
+                # 文字列キーから整数キーと値を取得
+                print(f"[DEBUG] _str_to_value keys: {list(controller.cc._str_to_value.keys())}")
+                print(f"[DEBUG] _reverse_cc_map: {controller.cc._reverse_cc_map}")
+                for str_key, value in controller.cc._str_to_value.items():
+                    int_key = controller.cc._reverse_cc_map.get(str_key)
+                    print(f"[DEBUG] Looking up '{str_key}' -> {int_key}")
+                    if int_key is not None:
+                        flat[int_key] = value
+                        print(f"[DEBUG] ✓ Flattened CC#{int_key} (from {str_key}): {value}")
+                    else:
+                        print(f"[DEBUG] ✗ No mapping found for '{str_key}' (value: {value})")
+            else:
+                # 通常の辞書の場合
+                for cc_num, value in controller.cc.items():
                     flat[cc_num] = value
+                    print(f"[DEBUG] Flattened CC#{cc_num}: {value}")
         return flat
