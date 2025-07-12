@@ -9,10 +9,9 @@ def draw(t, cc):
     """PyxiDraw次期API仕様の全機能デモ"""
     # デフォルト値を設定
     sphere_subdivisions = cc.get(1, 0.5)
-    subdivisions = cc.get(2, 0.5)
-    noise_intensity = cc.get(3, 0.3)
-    rotation_val = cc.get(4, 0.1)
-    sphere_type = cc.get(5, 0.5)
+    noise_intensity = cc.get(2, 0.3)
+    rotation_val = cc.get(3, 0.1)
+    sphere_type = cc.get(4, 0.5)
 
     sphere = (
         G.sphere(subdivisions=sphere_subdivisions, sphere_type=sphere_type)
@@ -30,6 +29,6 @@ def draw(t, cc):
 
 
 if __name__ == "__main__":
-    arc.start(midi=True)  # MIDIを無効化してテスト
+    # arc.start(midi=True)
     run_sketch(draw, canvas_size=CANVAS_SIZES["SQUARE_200"], render_scale=6, background=(1, 1, 1, 1))
-    arc.stop()
+    # arc.stop()
