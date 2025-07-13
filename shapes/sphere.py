@@ -63,18 +63,23 @@ def _sphere_zigzag(subdivisions: int) -> list[np.ndarray]:
     Returns:
         List of vertex arrays for sphere spiral
     """
-    points = 16 + 32 * subdivisions  # Number of points in the spiral
+    # 螺旋の総回転数
+    total_rotations = 8 + 4 * subdivisions
+    # 1周あたりの点数
+    # points_per_rotation = 16 + 8 * subdivisions
+    points_per_rotation = 100
+    # 総点数
+    points = int(total_rotations * points_per_rotation)
 
     vertices = []
-    # Golden angle spiral
-    golden_angle = np.pi * (3.0 - np.sqrt(5.0))
 
     for i in range(points):
-        # Parametric sphere using golden angle
+        # Parametric sphere using controlled spiral
         y = 1 - (i / float(points - 1)) * 2  # y goes from 1 to -1
         radius = np.sqrt(1 - y * y)
 
-        theta = golden_angle * i
+        # 制御された螺旋角度（1周あたりの点数で制御）
+        theta = (2 * np.pi * total_rotations * i) / points
 
         x = np.cos(theta) * radius * 0.5
         z = np.sin(theta) * radius * 0.5
